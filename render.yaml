@@ -1,21 +1,25 @@
-services:
-  # 1. PostgreSQL Database
-  - type: postgres
-    name: retrac-database
+# ============================================================================
+# ReTrac Infrastructure as Code — Render Blueprint (render.yaml)
+# DOMINION 2026 — Track 05: Rehabilitation & Reintegration
+# ============================================================================
+
+databases:
+  - name: retrac-database
     databaseName: retrac_db
     user: retrac_user
     plan: free
     region: frankfurt
 
-  # 2. Backend Web Service
+services:
+  # 1. Backend REST API Web Service
   - type: web
     name: retrac-backend
     runtime: node
     plan: free
     region: frankfurt
     rootDir: backend
-    buildCommand: npm install && npm run build
-    startCommand: npm run start
+    buildCommand: npm install
+    startCommand: node src/server.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -27,6 +31,8 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
       - key: DEMO_MODE
         value: "true"
       - key: SMS_PROVIDER
@@ -36,12 +42,9 @@ services:
       - key: PAYMENT_PROVIDER
         value: "demo"
       - key: FRONTEND_URL
-        fromService:
-          type: web
-          name: retrac-frontend
-          property: url
+        value: https://retrac.onrender.com
 
-  # 3. Frontend Static Site
+  # 2. Frontend React / Vite Static Site
   - type: web
     name: retrac-frontend
     runtime: static
@@ -52,22 +55,19 @@ services:
     staticPublishPath: ./dist
     envVars:
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: retrac-backend
-          property: url
+        value: https://retrac-backend.onrender.com/api
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
 
-  # 4. Weekly Automated Check-in Cron Job
+  # 3. Weekly Automated Check-in Cron Trigger
   - type: cron
     name: retrac-weekly-checkin-cron
     runtime: node
     plan: free
     region: frankfurt
-    schedule: "0 9 * * 1" # Every Monday at 9:00 AM UTC
+    schedule: "0 9 * * 1" # Every Monday at 9:00 AM UTC (12:00 PM EAT)
     rootDir: backend
     buildCommand: npm install
     startCommand: node src/scripts/triggerCronCheckins.js
@@ -75,9 +75,6 @@ services:
       - key: NODE_ENV
         value: production
       - key: BACKEND_INTERNAL_URL
-        fromService:
-          type: web
-          name: retrac-backend
-          property: url
+        value: https://retrac-backend.onrender.com
       - key: CRON_SECRET
         value: retrac_internal_cron_secret_key_2026

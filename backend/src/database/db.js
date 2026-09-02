@@ -86,7 +86,9 @@ async function query(text, params = []) {
 
   if (isPg && pgPool) {
     try {
-      const res = await pgPool.query(text, params);
+      // Normalize SQLite-specific datetime('now') to PostgreSQL CURRENT_TIMESTAMP
+      const pgSql = text.replace(/datetime\('now'\)/gi, 'CURRENT_TIMESTAMP');
+      const res = await pgPool.query(pgSql, params);
       return { rows: res.rows, rowCount: res.rowCount };
     } catch (pgError) {
       if (process.env.NODE_ENV !== 'production' && !sqliteDb) {
