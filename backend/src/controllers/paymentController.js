@@ -6,14 +6,12 @@ class PaymentController {
    */
   static async triggerPayment(req, res, next) {
     try {
-      const {
-        applicationId,
-        clientId,
-        employerId,
-        amount,
-        currency = 'UGX',
-        notes
-      } = req.body;
+      const clientId = req.body.clientId || req.body.client_id;
+      const applicationId = req.body.applicationId || req.body.application_id || null;
+      const employerId = req.body.employerId || req.body.employer_id || null;
+      const amount = req.body.amount;
+      const currency = req.body.currency || 'UGX';
+      const notes = req.body.notes || 'Reintegration work completion stipend';
 
       if (!clientId || !amount) {
         return res.status(400).json({

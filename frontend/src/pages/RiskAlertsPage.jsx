@@ -99,8 +99,10 @@ export default function RiskAlertsPage() {
       ) : (
         <div className="space-y-4">
           {alerts.map(alert => {
-            const Icon = levelIcon[alert.level] || AlertTriangle;
-            const cardCls = levelColor[alert.level] || levelColor.MONITOR;
+            const riskLevel = alert.risk_level || alert.level || 'MONITOR';
+            const riskScore = alert.risk_score ?? alert.score ?? 0;
+            const Icon = levelIcon[riskLevel] || AlertTriangle;
+            const cardCls = levelColor[riskLevel] || levelColor.MONITOR;
             return (
               <div key={alert.id} className={`rounded-2xl border p-5 flex flex-col sm:flex-row sm:items-start gap-4 ${cardCls}`}>
                 <div className="flex items-start gap-4 flex-1">
@@ -110,8 +112,8 @@ export default function RiskAlertsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-sm font-black">{alert.client_name}</h3>
-                      <StatusBadge status={alert.level} size="sm" />
-                      <span className="text-xs font-bold opacity-80">Score: {alert.score}/100</span>
+                      <StatusBadge status={riskLevel} size="sm" />
+                      <span className="text-xs font-bold opacity-80">Score: {riskScore}/100</span>
                     </div>
                     <p className="text-xs font-mono opacity-70 mt-0.5">{alert.phone_number}</p>
 
@@ -161,7 +163,7 @@ export default function RiskAlertsPage() {
         isOpen={showResolveModal}
         onClose={() => setShowResolveModal(false)}
         title={`Resolve Alert & Log Intervention`}
-        subtitle={selectedAlert ? `Stabilizing ${selectedAlert.client_name} (${selectedAlert.level})` : ''}
+        subtitle={selectedAlert ? `Stabilizing ${selectedAlert.client_name} (${selectedAlert.risk_level || selectedAlert.level})` : ''}
       >
         <form onSubmit={handleResolve} className="space-y-4 text-xs">
           <div>

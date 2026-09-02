@@ -27,7 +27,7 @@ export default function JobMatchingPage() {
     if (!clientId) return;
     setMatchLoading(true);
     try {
-      const res = await api.get(`/jobs/match/${clientId}`);
+      const res = await api.get(`/clients/${clientId}/matches`);
       if (res.success && res.data) {
         setMatches(res.data.matches || res.data);
       }
@@ -42,7 +42,7 @@ export default function JobMatchingPage() {
     if (!selectedClient) return;
     setApplying(jobId);
     try {
-      const res = await api.post('/applications', { client_id: selectedClient.id, job_id: jobId });
+      const res = await api.post(`/jobs/${jobId}/apply`, { client_id: selectedClient.id });
       if (res.success) {
         addToast('Application Submitted', `${selectedClient.full_name} has been applied to this position.`, 'success');
       }

@@ -8,5 +8,6 @@ router.use(authenticateToken);
 
 router.get('/', PaymentController.getPayments);
 router.post('/trigger', requireRole(ROLES.ADMIN, ROLES.CASEWORKER, ROLES.EMPLOYER), PaymentController.triggerPayment);
+router.post('/disburse', requireRole(ROLES.ADMIN, ROLES.CASEWORKER, ROLES.EMPLOYER), PaymentController.triggerPayment);
 
 module.exports = router;

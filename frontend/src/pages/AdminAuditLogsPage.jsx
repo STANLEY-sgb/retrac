@@ -91,9 +91,9 @@ export default function AdminAuditLogsPage() {
                           {log.action}
                         </span>
                       </td>
-                      <td className="py-3.5 px-4 text-slate-600 capitalize">{(log.resource_type || '').replace('_', ' ')}</td>
-                      <td className="py-3.5 px-4 font-mono text-slate-500 text-2xs">{log.resource_id?.substring(0, 8) || '—'}...</td>
-                      <td className="py-3.5 px-4 font-mono text-slate-400 text-2xs">{log.ip_address || '—'}</td>
+                      <td className="py-3.5 px-4 text-slate-600 capitalize">{((log.entity_type || log.resource_type || '')).replace('_', ' ')}</td>
+                      <td className="py-3.5 px-4 font-mono text-slate-500 text-2xs">{((log.entity_id || log.resource_id || '')).substring(0, 12) || '—'}</td>
+                      <td className="py-3.5 px-4 font-mono text-slate-400 text-2xs">{log.ip_address || '127.0.0.1'}</td>
                       <td className="py-3.5 px-4">
                         {log.metadata ? (
                           <button

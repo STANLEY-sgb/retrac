@@ -111,7 +111,9 @@ export default function JobsPage() {
               </div>
 
               <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <span className="px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200 text-2xs font-semibold">{job.category}</span>
+                <span className="px-2 py-0.5 rounded-lg bg-sky-50 text-sky-800 border border-sky-200 text-2xs font-semibold">
+                  {job.preferred_job_category || job.category || 'General'}
+                </span>
                 <span className="text-xs text-blue-600 font-bold flex items-center gap-0.5 group-hover:gap-1.5 transition-all">
                   View <ChevronRight className="w-3.5 h-3.5" />
                 </span>

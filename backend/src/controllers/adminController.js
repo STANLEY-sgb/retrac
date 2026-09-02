@@ -23,7 +23,8 @@ class AdminController {
    */
   static async createUser(req, res, next) {
     try {
-      const { name, email, password, role = 'caseworker', phone } = req.body;
+      const name = req.body.name || req.body.full_name;
+      const { email, password, role = 'caseworker', phone } = req.body;
 
       if (!name || !email || !password || !role) {
         return res.status(400).json({ success: false, message: 'All fields are required', code: 'VALIDATION_FAILED' });
