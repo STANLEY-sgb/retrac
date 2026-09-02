@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <defs>
+    <linearGradient id="retracGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="50%" stop-color="#0d9488" />
+      <stop offset="100%" stop-color="#10b981" />
+    </linearGradient>
+  </defs>
+  <!-- Reconnecting loop symbolizing recovery and rebuilding -->
+  <circle cx="50" cy="50" r="42" stroke="url(#retracGrad)" stroke-width="8" stroke-linecap="round" stroke-dasharray="190 70" />
+  <!-- Human / Hope silhouette at center -->
+  <circle cx="50" cy="36" r="10" fill="#0c4a6e" />
+  <path d="M30 68 C30 52, 70 52, 70 68 Z" fill="#0d9488" />
+  <!-- Forward upward arrow head on the arc -->
+  <polygon points="76,28 92,26 84,42" fill="#10b981" />
+</svg>

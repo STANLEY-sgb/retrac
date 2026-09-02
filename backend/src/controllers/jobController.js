@@ -1,0 +1,243 @@
+const { v4: uuidv4 } = require('uuid');
+const db = require('../database/db');
+const AuditService = require('../services/audit/auditService');
+
+class JobController {
+  /**
+   * Get all jobs with filters
+   */
+  static async getJobs(req, res, next) {
+    try {
+      const { status, category, location, search, employerId, limit = 50, offset = 0 } = req.query;
+
+      let sql = `
+        SELECT j.*, e.company_name, e.contact_person, e.phone as employer_phone, e.location as employer_location
+        FROM jobs j
+        JOIN employers e ON j.employer_id = e.id
+        WHERE 1=1
+      `;
+      const params = [];
+      let pIndex = 1;
+
+      if (status) {
+        sql += ` AND j.status = $${pIndex++}`;
+        params.push(status);
+      }
+      if (category) {
+        sql += ` AND j.preferred_job_category = $${pIndex++}`;
+        params.push(category);
+      }
+      if (employerId) {
+        sql += ` AND j.employer_id = $${pIndex++}`;
+        params.push(employerId);
+      }
+      if (search) {
+        sql += ` AND (j.title LIKE $${pIndex} OR j.description LIKE $${pIndex} OR j.location LIKE $${pIndex} OR e.company_name LIKE $${pIndex})`;
+        params.push(`%${search}%`);
+        pIndex++;
+      }
+
+      sql += ` ORDER BY j.created_at DESC LIMIT $${pIndex++} OFFSET $${pIndex++}`;
+      params.push(parseInt(limit, 10), parseInt(offset, 10));
+
+      const result = await db.query(sql, params);
+
+      // Fetch skill tags for jobs
+      const jobIds = result.rows.map(j => j.id);
+      let skillsMap = {};
+
+      if (jobIds.length > 0) {
+        const skillsRes = await db.query(`
+          SELECT js.job_id, s.id, s.name, s.category
+          FROM job_skills js
+          JOIN skills s ON js.skill_id = s.id
+        `);
+        skillsRes.rows.forEach(row => {
+          if (!skillsMap[row.job_id]) skillsMap[row.job_id] = [];
+          skillsMap[row.job_id].push({ id: row.id, name: row.name, category: row.category });
+        });
+      }
+
+      const jobsWithSkills = result.rows.map(j => ({
+        ...j,
+        skills: skillsMap[j.id] || []
+      }));
+
+      const countRes = await db.getOne('SELECT COUNT(*) as total FROM jobs');
+
+      return res.json({
+        success: true,
+        data: {
+          jobs: jobsWithSkills,
+          total: countRes ? parseInt(countRes.total, 10) : jobsWithSkills.length
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Get single job by ID with applicants and match scores
+   */
+  static async getJobById(req, res, next) {
+    try {
+      const { id } = req.params;
+
+      const job = await db.getOne(
+        `SELECT j.*, e.company_name, e.contact_person, e.phone as employer_phone, e.email as employer_email, e.location as employer_location
+         FROM jobs j
+         JOIN employers e ON j.employer_id = e.id
+         WHERE j.id = $1`,
+        [id]
+      );
+
+      if (!job) {
+        return res.status(404).json({
+          success: false,
+          message: `Job with ID '${id}' not found.`,
+          code: 'JOB_NOT_FOUND'
+        });
+      }
+
+      // Job Skills
+      const skills = await db.query(
+        `SELECT s.id, s.name, s.category
+         FROM job_skills js
+         JOIN skills s ON js.skill_id = s.id
+         WHERE js.job_id = $1`,
+        [id]
+      );
+
+      // Applications / Placements for this job
+      const applications = await db.query(
+        `SELECT ja.*, c.full_name as client_name, c.phone_number as client_phone, c.location as client_location, c.current_risk_level, c.current_risk_score
+         FROM job_applications ja
+         JOIN clients c ON ja.client_id = c.id
+         WHERE ja.job_id = $1
+         ORDER BY ja.match_score DESC, ja.created_at DESC`,
+        [id]
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          job: {
+            ...job,
+            skills: skills.rows
+          },
+          applications: applications.rows
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Create New Job Post
+   */
+  static async createJob(req, res, next) {
+    try {
+      const {
+        employer_id = 'emp-01',
+        title,
+        description,
+        location,
+        pay_amount,
+        pay_currency = 'UGX',
+        pay_frequency = 'daily',
+        employment_type = 'casual',
+        preferred_job_category,
+        vacancies = 1,
+        skill_ids = []
+      } = req.body;
+
+      if (!title || !description || !location || !pay_amount) {
+        return res.status(400).json({
+          success: false,
+          message: 'Title, description, location, and pay amount are required.',
+          code: 'VALIDATION_FAILED'
+        });
+      }
+
+      const jobId = 'job-' + uuidv4().substring(0, 8);
+
+      await db.run(
+        `INSERT INTO jobs (
+          id, employer_id, title, description, location, pay_amount,
+          pay_currency, pay_frequency, employment_type, preferred_job_category,
+          status, vacancies, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'open', $11, datetime('now'), datetime('now'))`,
+        [
+          jobId, employer_id, title, description, location, parseFloat(pay_amount),
+          pay_currency, pay_frequency, employment_type, preferred_job_category, parseInt(vacancies, 10)
+        ]
+      );
+
+      // Link skills
+      if (Array.isArray(skill_ids)) {
+        for (const skillId of skill_ids) {
+          await db.run(
+            'INSERT INTO job_skills (job_id, skill_id, is_required) VALUES ($1, $2, 1) ON CONFLICT (job_id, skill_id) DO NOTHING',
+            [jobId, skillId]
+          );
+        }
+      }
+
+      await AuditService.log({
+        userId: req.user ? req.user.id : null,
+        userName: req.user ? req.user.name : 'Employer',
+        action: 'JOB_POSTED',
+        entityType: 'JOB',
+        entityId: jobId,
+        metadata: { title, pay_amount, location }
+      });
+
+      return res.status(201).json({
+        success: true,
+        message: 'Job posted successfully.',
+        data: { id: jobId, title, status: 'open' }
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Update or Close Job
+   */
+  static async updateJob(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { title, description, location, pay_amount, status, vacancies } = req.body;
+
+      const job = await db.getOne('SELECT * FROM jobs WHERE id = $1', [id]);
+      if (!job) {
+        return res.status(404).json({ success: false, message: 'Job not found.', code: 'JOB_NOT_FOUND' });
+      }
+
+      await db.run(
+        `UPDATE jobs 
+         SET title = $1, description = $2, location = $3, pay_amount = $4,
+             status = $5, vacancies = $6, updated_at = datetime('now')
+         WHERE id = $7`,
+        [
+          title || job.title,
+          description || job.description,
+          location || job.location,
+          pay_amount !== undefined ? parseFloat(pay_amount) : job.pay_amount,
+          status || job.status,
+          vacancies !== undefined ? parseInt(vacancies, 10) : job.vacancies,
+          id
+        ]
+      );
+
+      return res.json({ success: true, message: 'Job updated successfully.' });
+    } catch (err) {
+      next(err);
+    }
+  }
+}
+
+module.exports = JobController;

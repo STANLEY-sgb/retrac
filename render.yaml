@@ -1,0 +1,83 @@
+services:
+  # 1. PostgreSQL Database
+  - type: postgres
+    name: retrac-database
+    databaseName: retrac_db
+    user: retrac_user
+    plan: free
+    region: frankfurt
+
+  # 2. Backend Web Service
+  - type: web
+    name: retrac-backend
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: retrac-database
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DEMO_MODE
+        value: "true"
+      - key: SMS_PROVIDER
+        value: "demo"
+      - key: AI_PROVIDER
+        value: "demo"
+      - key: PAYMENT_PROVIDER
+        value: "demo"
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: retrac-frontend
+          property: url
+
+  # 3. Frontend Static Site
+  - type: web
+    name: retrac-frontend
+    runtime: static
+    plan: free
+    region: frankfurt
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: retrac-backend
+          property: url
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # 4. Weekly Automated Check-in Cron Job
+  - type: cron
+    name: retrac-weekly-checkin-cron
+    runtime: node
+    plan: free
+    region: frankfurt
+    schedule: "0 9 * * 1" # Every Monday at 9:00 AM UTC
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node src/scripts/triggerCronCheckins.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BACKEND_INTERNAL_URL
+        fromService:
+          type: web
+          name: retrac-backend
+          property: url
+      - key: CRON_SECRET
+        value: retrac_internal_cron_secret_key_2026

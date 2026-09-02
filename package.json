@@ -1,0 +1,21 @@
+{
+  "name": "retrac-mvp",
+  "version": "1.0.0",
+  "description": "ReTrac - Digital Aftercare & Reintegration Platform (DOMINION 2026)",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd backend && npm run build && cd ../frontend && npm run build",
+    "migrate": "cd backend && npm run migrate",
+    "seed": "cd backend && npm run seed",
+    "reset-demo": "cd backend && npm run reset-demo",
+    "test": "cd backend && npm run test"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "author": "ReTrac Team - Dominion 2026",
+  "license": "MIT"
+}
