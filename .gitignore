@@ -1,31 +1,74 @@
-# Node modules
-node_modules/
-npm-debug.log
-yarn-error.log
+# ============================================================================
+# ReTrac Security & Production .gitignore
+# ============================================================================
 
-# Environment variables
+# Environment variables (NEVER commit actual credentials)
 .env
-.env*
-.env.example
+.env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+!.env.example
+
+# Node dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Build outputs
 dist/
 build/
 coverage/
+.next/
+out/
 
-# OS files
-.DS_Store
-Thumbs.db
+# Logs and runtime diagnostics
+logs/
+*.log
+npm-debug.log*
 
-# Database
+# Local Database Files (SQLite runtime)
 *.sqlite
 *.sqlite3
 *.db
 *.db-shm
 *.db-wal
 backend/data/
-*.log
+data/
+
+# Temporary and upload storage
+storage/
+uploads/
+private/
+tmp/
+temp/
+
+# Operating System artifacts
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Certificates, Keys, and Service Accounts
+*.pem
+*.key
+*.p12
+*.pfx
+*.cert
+credentials.json
+service-account.json
