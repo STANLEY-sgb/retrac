@@ -57,7 +57,6 @@ class InterventionController {
     try {
       const {
         client_id,
-        caseworker_id = 'cw-01',
         type,
         description,
         action_taken,
@@ -65,6 +64,13 @@ class InterventionController {
         notes,
         resolve_active_alert = true
       } = req.body;
+
+      let caseworker_id = req.body.caseworker_id;
+      if (!caseworker_id && req.user) {
+        const cw = await db.getOne('SELECT id FROM caseworkers WHERE user_id = $1', [req.user.id]);
+        if (cw) caseworker_id = cw.id;
+      }
+      if (!caseworker_id) caseworker_id = 'cw-01';
 
       if (!client_id || !type || !description || !action_taken) {
         return res.status(400).json({

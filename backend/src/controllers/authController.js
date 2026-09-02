@@ -143,6 +143,18 @@ class AuthController {
       next(err);
     }
   }
+
+  /**
+   * Register a new user
+   */
+  static async register(req, res, next) {
+    try {
+      const AdminController = require('./adminController');
+      return AdminController.createUser(req, res, next);
+    } catch (err) {
+      next(err);
+    }
+  }
 }
 
 module.exports = AuthController;

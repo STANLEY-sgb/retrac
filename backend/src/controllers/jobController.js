@@ -139,24 +139,22 @@ class JobController {
    */
   static async createJob(req, res, next) {
     try {
-      const {
-        employer_id = 'emp-01',
-        title,
-        description,
-        location,
-        pay_amount,
-        pay_currency = 'UGX',
-        pay_frequency = 'daily',
-        employment_type = 'casual',
-        preferred_job_category,
-        vacancies = 1,
-        skill_ids = []
-      } = req.body;
+      const employer_id = req.body.employer_id || 'emp-01';
+      const title = req.body.title;
+      const description = req.body.description || 'Reintegration employment opportunity';
+      const location = req.body.location;
+      const pay_amount = req.body.pay_amount;
+      const pay_currency = req.body.pay_currency || 'UGX';
+      const pay_frequency = req.body.pay_frequency || 'daily';
+      const employment_type = req.body.employment_type || 'casual';
+      const preferred_job_category = req.body.preferred_job_category || req.body.category || 'Logistics & Retail';
+      const vacancies = req.body.vacancies || 1;
+      const skill_ids = req.body.skill_ids || req.body.required_skills || [];
 
-      if (!title || !description || !location || !pay_amount) {
+      if (!title || !location || !pay_amount) {
         return res.status(400).json({
           success: false,
-          message: 'Title, description, location, and pay amount are required.',
+          message: 'Title, location, and pay amount are required.',
           code: 'VALIDATION_FAILED'
         });
       }

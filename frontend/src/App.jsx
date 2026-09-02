@@ -66,6 +66,7 @@ export default function App() {
         <Route path="clients/new" element={<NewClientPage />} />
         <Route path="clients/:id" element={<ClientDetailPage />} />
         <Route path="checkins" element={<CheckinsPage />} />
+        <Route path="check-ins" element={<CheckinsPage />} />
         <Route path="risk-alerts" element={<RiskAlertsPage />} />
         <Route path="interventions" element={<InterventionsPage />} />
         <Route path="jobs" element={<JobsPage />} />
