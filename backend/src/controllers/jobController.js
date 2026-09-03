@@ -27,9 +27,15 @@ class JobController {
         sql += ` AND j.preferred_job_category = $${pIndex++}`;
         params.push(category);
       }
-      if (employerId) {
+      let effectiveEmployerId = employerId;
+      if (!effectiveEmployerId && req.user && req.user.role === 'employer' && (req.query.scope === 'mine' || req.query.mine === 'true')) {
+        const emp = await db.getOne('SELECT id FROM employers WHERE user_id = $1', [req.user.id]);
+        if (emp) effectiveEmployerId = emp.id;
+      }
+
+      if (effectiveEmployerId) {
         sql += ` AND j.employer_id = $${pIndex++}`;
-        params.push(employerId);
+        params.push(effectiveEmployerId);
       }
       if (search) {
         sql += ` AND (j.title LIKE $${pIndex} OR j.description LIKE $${pIndex} OR j.location LIKE $${pIndex} OR e.company_name LIKE $${pIndex})`;
@@ -183,7 +189,12 @@ class JobController {
    */
   static async createJob(req, res, next) {
     try {
-      const employer_id = req.body.employer_id || 'emp-01';
+      let employer_id = req.body.employer_id;
+      if (!employer_id && req.user && req.user.role === 'employer') {
+        const emp = await db.getOne('SELECT id FROM employers WHERE user_id = $1', [req.user.id]);
+        if (emp) employer_id = emp.id;
+      }
+      if (!employer_id) employer_id = 'emp-01';
       const title = req.body.title;
       const description = req.body.description || 'Reintegration employment opportunity';
       const location = req.body.location;

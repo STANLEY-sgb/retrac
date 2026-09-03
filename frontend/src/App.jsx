@@ -62,25 +62,25 @@ export default function App() {
         }
       >
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="clients" element={<ClientsPage />} />
-        <Route path="clients/new" element={<NewClientPage />} />
-        <Route path="clients/:id" element={<ClientDetailPage />} />
-        <Route path="checkins" element={<CheckinsPage />} />
-        <Route path="check-ins" element={<CheckinsPage />} />
-        <Route path="risk-alerts" element={<RiskAlertsPage />} />
-        <Route path="interventions" element={<InterventionsPage />} />
+        <Route path="clients" element={<PrivateRoute roles={['admin', 'caseworker']}><ClientsPage /></PrivateRoute>} />
+        <Route path="clients/new" element={<PrivateRoute roles={['admin', 'caseworker']}><NewClientPage /></PrivateRoute>} />
+        <Route path="clients/:id" element={<PrivateRoute roles={['admin', 'caseworker']}><ClientDetailPage /></PrivateRoute>} />
+        <Route path="checkins" element={<PrivateRoute roles={['admin', 'caseworker']}><CheckinsPage /></PrivateRoute>} />
+        <Route path="check-ins" element={<PrivateRoute roles={['admin', 'caseworker']}><CheckinsPage /></PrivateRoute>} />
+        <Route path="risk-alerts" element={<PrivateRoute roles={['admin', 'caseworker']}><RiskAlertsPage /></PrivateRoute>} />
+        <Route path="interventions" element={<PrivateRoute roles={['admin', 'caseworker']}><InterventionsPage /></PrivateRoute>} />
         <Route path="jobs" element={<JobsPage />} />
         <Route path="jobs/new" element={<NewJobPage />} />
         <Route path="jobs/:id" element={<JobDetailPage />} />
         <Route path="job-matches" element={<JobMatchingPage />} />
-        <Route path="employers" element={<EmployersPage />} />
+        <Route path="employers" element={<PrivateRoute roles={['admin', 'caseworker']}><EmployersPage /></PrivateRoute>} />
         <Route path="payments" element={<PaymentsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
-        <Route path="reports" element={<ReportsPage />} />
+        <Route path="reports" element={<PrivateRoute roles={['admin', 'caseworker']}><ReportsPage /></PrivateRoute>} />
         <Route path="settings" element={<PrivateRoute roles={['admin']}><SettingsPage /></PrivateRoute>} />
         <Route path="admin/users" element={<PrivateRoute roles={['admin']}><AdminUsersPage /></PrivateRoute>} />
         <Route path="admin/audit-logs" element={<PrivateRoute roles={['admin']}><AdminAuditLogsPage /></PrivateRoute>} />
-        <Route path="demo/sms" element={<DemoSmsSimulatorPage />} />
+        <Route path="demo/sms" element={<PrivateRoute roles={['admin', 'caseworker']}><DemoSmsSimulatorPage /></PrivateRoute>} />
         <Route path="demo/payment" element={<DemoPaymentSimulatorPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>

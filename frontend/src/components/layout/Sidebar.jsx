@@ -16,6 +16,7 @@ import {
   History,
   Smartphone,
   CreditCard,
+  PlusCircle,
   X
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -25,7 +26,26 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
   const { role } = useAuth();
   const { unreadCount } = useNotifications();
 
-  const groups = [
+  const employerGroups = [
+    {
+      title: 'Employer Portal',
+      items: [
+        { to: '/dashboard', label: 'Overview', icon: LayoutDashboard },
+        { to: '/jobs', label: 'My Vacancies', icon: Briefcase },
+        { to: '/jobs/new', label: 'Post a Job', icon: PlusCircle },
+        { to: '/job-matches', label: 'Candidates', icon: GitCompare },
+        { to: '/payments', label: 'Stipends & Payouts', icon: Wallet },
+      ]
+    },
+    {
+      title: 'Simulator',
+      items: [
+        { to: '/demo/payment', label: 'Mobile Money', icon: CreditCard, highlight: true },
+      ]
+    }
+  ];
+
+  const clinicalGroups = [
     {
       title: 'Care',
       items: [
@@ -64,6 +84,8 @@ export default function Sidebar({ mobileOpen = false, onCloseMobile }) {
       ]
     }
   ];
+
+  const groups = role === 'employer' ? employerGroups : clinicalGroups;
 
   return (
     <>

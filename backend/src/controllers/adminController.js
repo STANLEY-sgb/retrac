@@ -52,6 +52,16 @@ class AdminController {
            VALUES ($1, $2, $3, $4, $5, 'ReTrac Community Recovery', 'Recovery Caseworker')`,
           [cwId, userId, name, phone || '+256700000000', email]
         );
+      } else if (role === 'employer') {
+        const empId = 'emp-' + uuidv4().substring(0, 8);
+        const companyName = req.body.company_name || req.body.companyName || name;
+        const location = req.body.location || 'Kampala, Uganda';
+        const sector = req.body.sector || 'Community Partner';
+        await db.run(
+          `INSERT INTO employers (id, user_id, company_name, contact_person, phone, email, location, sector, is_verified)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 1)`,
+          [empId, userId, companyName, name, phone || '+256700000000', email, location, sector]
+        );
       }
 
       await AuditService.log({

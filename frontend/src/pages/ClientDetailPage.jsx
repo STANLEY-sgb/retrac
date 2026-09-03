@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Phone, MapPin, ArrowLeft, HeartHandshake, Send, Briefcase, Wallet,
-  UserPlus, MessageSquare, ShieldAlert, CheckCircle2
+  UserPlus, MessageSquare, ShieldAlert, CheckCircle2, UserCheck
 } from 'lucide-react';
 import api from '../api/client';
 import StatusBadge from '../components/common/StatusBadge';
@@ -13,6 +13,7 @@ import Avatar from '../components/ui/Avatar';
 import RiskRing from '../components/ui/RiskRing';
 import JourneyStrip from '../components/ui/JourneyStrip';
 import { useNotifications } from '../context/NotificationContext';
+import { useAuth } from '../context/AuthContext';
 import { parseReasons } from '../lib/visual';
 
 const JOURNEY = [
@@ -39,14 +40,56 @@ export default function ClientDetailPage() {
   const [submittingIntv, setSubmittingIntv] = useState(false);
   const [sendingSms, setSendingSms] = useState(false);
 
+  // Caseworker Assignment State
+  const { role } = useAuth();
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [caseworkersList, setCaseworkersList] = useState([]);
+  const [selectedCaseworker, setSelectedCaseworker] = useState('');
+  const [submittingAssign, setSubmittingAssign] = useState(false);
+
   const fetchClientData = async () => {
     try {
       const res = await api.get(`/clients/${id}`);
-      if (res.success && res.data) setData(res.data);
+      if (res.success && res.data) {
+        setData(res.data);
+        if (res.data.client?.assigned_caseworker_id) {
+          setSelectedCaseworker(res.data.client.assigned_caseworker_id);
+        }
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openAssignModal = async () => {
+    setIsAssignModalOpen(true);
+    try {
+      const res = await api.get('/clients/caseworkers');
+      if (res.success && res.data) {
+        setCaseworkersList(res.data.caseworkers || []);
+      }
+    } catch (err) {
+      console.error('Failed to load caseworkers:', err);
+    }
+  };
+
+  const handleAssignCaseworker = async (e) => {
+    e.preventDefault();
+    if (!selectedCaseworker) return;
+    setSubmittingAssign(true);
+    try {
+      const res = await api.put(`/clients/${id}/assign`, { caseworkerId: selectedCaseworker });
+      if (res.success) {
+        addToast('Assigned', res.message || 'Caseworker updated successfully.', 'success');
+        setIsAssignModalOpen(false);
+        fetchClientData();
+      }
+    } catch (err) {
+      addToast('Error', err.message || 'Failed to assign caseworker', 'danger');
+    } finally {
+      setSubmittingAssign(false);
     }
   };
 
@@ -151,7 +194,26 @@ export default function ClientDetailPage() {
 
       {activeTab === 'overview' && (
         <div className="grid lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-5 space-y-3 text-sm">
+          <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/80 p-5 space-y-4 text-sm">
+            <div className="flex items-center justify-between p-3 bg-slate-50/80 rounded-xl border border-slate-200/70">
+              <div className="flex items-center gap-2.5 text-slate-700">
+                <UserCheck className="w-4 h-4 text-teal-600" />
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">Assigned Caseworker</span>
+                  <span className="font-bold text-xs text-slate-900">{client.caseworker_name || 'Unassigned'}</span>
+                </div>
+              </div>
+              {['admin', 'caseworker'].includes(role) && (
+                <button
+                  type="button"
+                  onClick={openAssignModal}
+                  className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors shadow-2xs"
+                >
+                  {client.caseworker_name ? 'Reassign' : 'Assign Staff'}
+                </button>
+              )}
+            </div>
+
             <div className="flex items-center gap-2 text-slate-600"><Phone className="w-4 h-4" /> {client.phone_number}</div>
             <div className="flex items-center gap-2 text-slate-600"><MapPin className="w-4 h-4" /> {client.location}</div>
             <div className="flex flex-wrap gap-1.5 pt-2">
@@ -257,6 +319,47 @@ export default function ClientDetailPage() {
           <button type="submit" disabled={submittingIntv} className="w-full py-2.5 rounded-xl bg-teal-600 text-white font-bold disabled:opacity-50">
             {submittingIntv ? 'Saving…' : 'Save'}
           </button>
+        </form>
+      </Modal>
+
+      {/* Caseworker Assignment Modal */}
+      <Modal isOpen={isAssignModalOpen} onClose={() => setIsAssignModalOpen(false)} title="Assign Recovery Caseworker">
+        <form onSubmit={handleAssignCaseworker} className="space-y-4 text-xs">
+          <p className="text-slate-500">
+            Assign <span className="font-bold text-slate-800">{client.full_name}</span> to a licensed caseworker for weekly check-in monitoring and aftercare interventions.
+          </p>
+          <div>
+            <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1.5">Select Caseworker</label>
+            <select
+              required
+              value={selectedCaseworker}
+              onChange={(e) => setSelectedCaseworker(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500"
+            >
+              <option value="">-- Choose Caseworker --</option>
+              {caseworkersList.map((cw) => (
+                <option key={cw.id} value={cw.id}>
+                  {cw.full_name} • {cw.title} ({cw.active_client_count || 0} active clients)
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setIsAssignModalOpen(false)}
+              className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={submittingAssign || !selectedCaseworker}
+              className="px-5 py-2 rounded-xl bg-[#082f49] hover:bg-[#0c4a6e] text-white font-bold disabled:opacity-50 transition-colors"
+            >
+              {submittingAssign ? 'Saving...' : 'Confirm Assignment'}
+            </button>
+          </div>
         </form>
       </Modal>
     </div>
