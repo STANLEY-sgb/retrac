@@ -7,9 +7,11 @@ const { ROLES } = require('../config/constants');
 router.use(authenticateToken);
 
 router.get('/', ClientController.getClients);
+router.get('/caseworkers', requireRole(ROLES.ADMIN, ROLES.CASEWORKER), ClientController.getCaseworkersList);
 router.post('/', requireRole(ROLES.ADMIN, ROLES.CASEWORKER), ClientController.createClient);
 router.get('/:id', ClientController.getClientById);
 router.put('/:id', requireRole(ROLES.ADMIN, ROLES.CASEWORKER), ClientController.updateClient);
+router.put('/:id/assign', requireRole(ROLES.ADMIN, ROLES.CASEWORKER), ClientController.assignClient);
 router.get('/:id/matches', ClientController.getMatches);
 
 module.exports = router;

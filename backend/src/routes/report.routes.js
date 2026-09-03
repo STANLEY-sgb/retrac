@@ -1,9 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const ReportController = require('../controllers/reportController');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireRole } = require('../middleware/auth');
+const { ROLES } = require('../config/constants');
 
 router.use(authenticateToken);
+router.use(requireRole(ROLES.ADMIN, ROLES.CASEWORKER));
 
 router.get('/', ReportController.getOverview);
 router.get('/overview', ReportController.getOverview);

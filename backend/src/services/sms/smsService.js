@@ -68,7 +68,7 @@ class SmsService {
     }
 
     const firstName = client.full_name.split(' ')[0];
-    const message = `ReTrac:\nHi ${firstName} 👋\n\nHow are you doing this week?\n\nReply:\n1 — I'm doing well\n2 — I'm struggling\n\nYou can also reply with a message if you'd like to tell us more.`;
+    const message = `ReTrac:\nHi ${firstName} 👋\n\nHow are you doing this week?\n1 — I'm doing well\n2 — I'm struggling / need support\n3 — I'd like to talk to someone\n4 — I'm making progress\n5 — I need practical support\n\nReply 1, 2, 3, 4, 5, JOB or type your own message.`;
 
     const dispatch = await this.sendSms({
       clientId: client.id,
@@ -142,16 +142,52 @@ class SmsService {
     }
 
     // 3. Check for Feature Phone SMS Job Search Command ("JOB" / "JOBS")
-    if (cleanText.toUpperCase() === 'JOB' || cleanText.toUpperCase() === 'JOBS') {
+    const isJobCommand = cleanText.toUpperCase() === 'JOB' || cleanText.toUpperCase() === 'JOBS';
+    if (isJobCommand) {
       return await this.handleSmsJobSearch(client);
     }
 
-    // 4. Recovery Check-in Response Processing
+    // 3b. Check if client is replying to a recent Job Menu with 1, 2, or 3
+    const lastOutbound = await db.getOne(
+      "SELECT message_text FROM sms_messages WHERE client_id = $1 AND direction = 'outbound' ORDER BY created_at DESC LIMIT 1",
+      [client.id]
+    );
+    const wasJobMenuPrompt = lastOutbound && (
+      lastOutbound.message_text.includes('ReTrac Jobs:') ||
+      lastOutbound.message_text.includes('Reply with 1, 2 or 3') ||
+      lastOutbound.message_text.includes('Reply: 1, 2 or 3')
+    );
+
+    const firstChar = cleanText.substring(0, 1);
+    if (wasJobMenuPrompt && ['1', '2', '3'].includes(firstChar) && cleanText.length <= 5) {
+      return await this.handleJobSelectionReply(client, parseInt(firstChar, 10));
+    }
+
+    // 4. Recovery Check-in Response Processing (1, 2, 3, 4, 5, or Free Text)
     let responseCode = 'FREE_TEXT';
-    if (cleanText.startsWith('1')) {
+    let classification = 'FREE_TEXT';
+    let riskContribution = 0;
+
+    if (firstChar === '1') {
       responseCode = '1';
-    } else if (cleanText.startsWith('2')) {
+      classification = 'STABLE';
+      riskContribution = -20;
+    } else if (firstChar === '2') {
       responseCode = '2';
+      classification = 'STRUGGLING';
+      riskContribution = 25;
+    } else if (firstChar === '3') {
+      responseCode = '3';
+      classification = 'SUPPORT_REQUEST';
+      riskContribution = 10;
+    } else if (firstChar === '4') {
+      responseCode = '4';
+      classification = 'PROGRESS';
+      riskContribution = -10;
+    } else if (firstChar === '5') {
+      responseCode = '5';
+      classification = 'PRACTICAL_SUPPORT';
+      riskContribution = 5;
     }
 
     // Run AI / NLP Sentiment & Distress Analyzer
@@ -175,7 +211,7 @@ class SmsService {
              sentiment = $3,
              risk_contribution = $4
          WHERE id = $5`,
-        [cleanText, responseCode, aiAnalysis.sentiment, responseCode === '2' ? 25 : 0, checkinId]
+        [cleanText, responseCode, aiAnalysis.sentiment || classification, riskContribution, checkinId]
       );
     } else {
       checkinId = 'chk-' + uuidv4().substring(0, 8);
@@ -185,7 +221,7 @@ class SmsService {
           id, client_id, scheduled_date, sent_at, response_received_at,
           response_raw, response_code, status, sentiment, risk_contribution, created_at
         ) VALUES ($1, $2, $3, datetime('now'), datetime('now'), $4, $5, 'received', $6, $7, datetime('now'))`,
-        [checkinId, client.id, today, cleanText, responseCode, aiAnalysis.sentiment, responseCode === '2' ? 25 : 0]
+        [checkinId, client.id, today, cleanText, responseCode, aiAnalysis.sentiment || classification, riskContribution]
       );
     }
 
@@ -196,36 +232,81 @@ class SmsService {
       sentiment: aiAnalysis.sentiment
     });
 
-    // 6. Notify Caseworker
+    // 6. Notify Assigned Caseworker
     const firstName = client.full_name.split(' ')[0];
+    let caseworkerUserId = 'usr-cw-01';
+    if (client.assigned_caseworker_id) {
+      const cw = await db.getOne('SELECT user_id FROM caseworkers WHERE id = $1', [client.assigned_caseworker_id]);
+      if (cw && cw.user_id) caseworkerUserId = cw.user_id;
+    }
+
     let notificationTitle;
     let notificationMessage;
+    let notificationType = 'new_checkin';
 
-    if (responseCode === '2' || riskUpdate.newLevel === 'CRITICAL' || riskUpdate.newLevel === 'AT_RISK') {
-      notificationTitle = `🚨 ${firstName} replied "${responseCode}" (${riskUpdate.newLevel})`;
-      notificationMessage = `${client.full_name} replied: "${cleanText}". Risk score updated to ${riskUpdate.newScore}. Triage advice: ${aiAnalysis.recommended_action}`;
+    if (responseCode === '2') {
+      notificationTitle = `🚨 ${firstName} is Struggling (Score: ${riskUpdate.newScore})`;
+      notificationMessage = `${client.full_name} reported struggling with recovery. Risk score elevated to ${riskUpdate.newScore} (${riskUpdate.newLevel}). Immediate follow-up required.`;
+      notificationType = 'risk_alert';
+    } else if (responseCode === '3') {
+      notificationTitle = `📞 Support Request: ${client.full_name}`;
+      notificationMessage = `${client.full_name} replied "3" — requested to speak with a caseworker as soon as possible.`;
+      notificationType = 'system';
+    } else if (responseCode === '4') {
+      notificationTitle = `🌟 Recovery Progress: ${client.full_name}`;
+      notificationMessage = `${client.full_name} replied "4" — reported positive recovery progress and engagement.`;
+    } else if (responseCode === '5') {
+      notificationTitle = `🤝 Practical Support Request: ${client.full_name}`;
+      notificationMessage = `${client.full_name} replied "5" — requested practical assistance (reintegration, employment, or referral).`;
+      notificationType = 'system';
+    } else if (responseCode === '1') {
+      notificationTitle = `✅ Check-in Completed: ${client.full_name}`;
+      notificationMessage = `${client.full_name} replied "1" — Doing well. Recovery trajectory STABLE (${riskUpdate.newScore}).`;
     } else {
-      notificationTitle = `✅ ${firstName} completed weekly check-in`;
-      notificationMessage = `${client.full_name} replied "${cleanText}". Recovery status remains STABLE (${riskUpdate.newScore}).`;
+      // Free text
+      if (riskUpdate.newLevel === 'CRITICAL' || riskUpdate.newLevel === 'AT_RISK') {
+        notificationTitle = `🚨 ${firstName} sent high-risk message (${riskUpdate.newLevel})`;
+        notificationMessage = `${client.full_name} wrote: "${cleanText}". Risk score: ${riskUpdate.newScore}. Triage advice: ${aiAnalysis.recommended_action}`;
+        notificationType = 'risk_alert';
+      } else {
+        notificationTitle = `📱 New SMS message from ${firstName}`;
+        notificationMessage = `${client.full_name} wrote: "${cleanText}". Risk score remains ${riskUpdate.newScore} (${riskUpdate.newLevel}).`;
+      }
     }
 
     await NotificationService.createNotification({
-      userId: 'usr-cw-01',
+      userId: caseworkerUserId,
       clientId: client.id,
-      type: responseCode === '2' ? 'risk_alert' : 'new_checkin',
+      type: notificationType,
       title: notificationTitle,
       message: notificationMessage,
-      metadata: { checkinId, responseCode, riskUpdate }
+      metadata: { checkinId, responseCode, classification, riskUpdate }
     });
 
     // 7. Send empathetic automated confirmation SMS back to client
     let ackMessage;
-    if (responseCode === '2') {
-      ackMessage = `ReTrac: Thank you for sharing honestly, ${firstName}. Your recovery team is here for you. A caseworker will be in touch shortly to support you. You are not alone.`;
-    } else if (responseCode === '1') {
-      ackMessage = `ReTrac: Wonderful to hear, ${firstName}! Keep taking it one day at a time. We are proud of your progress. Have a blessed week!`;
+    if (responseCode === '1') {
+      ackMessage = 'ReTrac: Thank you for checking in. Keep taking recovery one day at a time. Your progress matters. We are here with you.';
+    } else if (responseCode === '2') {
+      ackMessage = 'ReTrac: Thank you for telling us. You do not have to face this alone. A ReTrac caseworker will follow up with you for support.';
+    } else if (responseCode === '3') {
+      ackMessage = 'ReTrac: We hear you. Thank you for reaching out. A caseworker will contact you as soon as possible. You are not alone.';
+    } else if (responseCode === '4') {
+      ackMessage = 'ReTrac: That is encouraging to hear. Keep going, one step at a time. Your effort and progress are important. Keep checking in with us.';
+    } else if (responseCode === '5') {
+      ackMessage = 'ReTrac: Thank you for letting us know. We are here to help. A caseworker will review your request and follow up with you.';
     } else {
-      ackMessage = `ReTrac: Thank you for your message, ${firstName}. It has been logged with your caseworker. Stay strong!`;
+      // Free Text
+      const lowerText = cleanText.toLowerCase();
+      if (aiAnalysis.sentiment === 'distressed' || lowerText.includes('craving') || lowerText.includes('shake') || lowerText.includes('struggling') || lowerText.includes('relapse')) {
+        ackMessage = 'ReTrac: Thank you for telling us. You do not have to face this alone. A ReTrac caseworker will follow up with you for support.';
+      } else if (aiAnalysis.sentiment === 'positive' || lowerText.includes('better') || lowerText.includes('good') || lowerText.includes('progress')) {
+        ackMessage = 'ReTrac: That is encouraging to hear. Keep going, one step at a time. Your effort and progress are important. Keep checking in with us.';
+      } else if (lowerText.includes('work') || lowerText.includes('job') || lowerText.includes('help')) {
+        ackMessage = 'ReTrac: Thank you for letting us know. We are here to help. A caseworker will review your request and follow up with you.';
+      } else {
+        ackMessage = 'ReTrac: Thank you for your message. We are here with you. Your caseworker has been updated. Keep taking it one day at a time.';
+      }
     }
 
     await this.sendSms({
@@ -241,9 +322,11 @@ class SmsService {
       clientName: client.full_name,
       checkinId,
       responseCode,
+      classification,
       aiAnalysis,
       riskUpdate,
-      ackMessageSent: true
+      ackMessageSent: true,
+      ackMessage
     };
   }
 
@@ -261,11 +344,11 @@ class SmsService {
       return { success: true, message: 'No open jobs found' };
     }
 
-    let jobListText = "ReTrac:\nHere are jobs matching your skills:\n";
+    let jobListText = "ReTrac Jobs:\n";
     jobs.rows.forEach((job, idx) => {
-      jobListText += `${idx + 1}. ${job.title} — ${job.location.split(',')[0]} (UGX ${Number(job.pay_amount).toLocaleString()})\n`;
+      jobListText += `${idx + 1} ${job.title} — ${job.location.split(',')[0]} — UGX ${Number(job.pay_amount).toLocaleString()}/day\n`;
     });
-    jobListText += "\nReply: 1, 2 or 3 to apply.";
+    jobListText += "\nReply with 1, 2 or 3.";
 
     await this.sendSms({ clientId: client.id, to: client.phone_number, message: jobListText });
 
@@ -273,6 +356,65 @@ class SmsService {
       success: true,
       action: 'SMS_JOB_MENU_SENT',
       matchedJobs: jobs.rows
+    };
+  }
+
+  /**
+   * Handle SMS reply to Job Menu (1, 2, or 3)
+   */
+  static async handleJobSelectionReply(client, optionIndex) {
+    const jobs = await db.query(
+      "SELECT id, title, location, pay_amount, employer_id FROM jobs WHERE status = 'open' LIMIT 3"
+    );
+
+    const selectedJob = jobs.rows[optionIndex - 1];
+    const firstName = client.full_name.split(' ')[0];
+
+    if (!selectedJob) {
+      const fallbackMsg = `ReTrac: Job option ${optionIndex} is not available. Send "JOB" to view current open listings.`;
+      await this.sendSms({ clientId: client.id, to: client.phone_number, message: fallbackMsg });
+      return { success: true, message: 'Invalid job selection' };
+    }
+
+    // Check or create job application
+    const existing = await db.getOne(
+      'SELECT id FROM job_applications WHERE job_id = $1 AND client_id = $2',
+      [selectedJob.id, client.id]
+    );
+
+    let appId = existing ? existing.id : 'app-' + uuidv4().substring(0, 8);
+    if (!existing) {
+      await db.run(
+        `INSERT INTO job_applications (id, job_id, client_id, match_score, status, applied_at, notes, created_at, updated_at)
+         VALUES ($1, $2, $3, 85, 'applied', datetime('now'), 'Applied via feature phone SMS command', datetime('now'), datetime('now'))`,
+        [appId, selectedJob.id, client.id]
+      );
+    }
+
+    // Notify caseworker
+    let caseworkerUserId = 'usr-cw-01';
+    if (client.assigned_caseworker_id) {
+      const cw = await db.getOne('SELECT user_id FROM caseworkers WHERE id = $1', [client.assigned_caseworker_id]);
+      if (cw && cw.user_id) caseworkerUserId = cw.user_id;
+    }
+
+    await NotificationService.createNotification({
+      userId: caseworkerUserId,
+      clientId: client.id,
+      type: 'job_match',
+      title: `💼 SMS Job Application: ${client.full_name}`,
+      message: `${client.full_name} applied via SMS for "${selectedJob.title}". Match score: 85%.`,
+      metadata: { appId, jobId: selectedJob.id, clientId: client.id }
+    });
+
+    const confirmMsg = `ReTrac: Thank you ${firstName}. Your interest in "${selectedJob.title}" has been recorded. Your caseworker will follow up to assist you with the placement.`;
+    await this.sendSms({ clientId: client.id, to: client.phone_number, message: confirmMsg });
+
+    return {
+      success: true,
+      action: 'SMS_JOB_APPLICATION_SAVED',
+      jobId: selectedJob.id,
+      jobTitle: selectedJob.title
     };
   }
 }

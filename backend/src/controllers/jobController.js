@@ -110,6 +110,7 @@ class JobController {
       );
 
       // Applications / Placements for this job
+      const isEmployer = req.user && req.user.role === 'employer';
       const applications = await db.query(
         `SELECT ja.*, c.full_name as client_name, c.phone_number as client_phone, c.location as client_location, c.current_risk_level, c.current_risk_score
          FROM job_applications ja
@@ -119,6 +120,49 @@ class JobController {
         [id]
       );
 
+      // Fetch client skills
+      const clientSkillsMap = {};
+      const clientIds = [...new Set(applications.rows.map(r => r.client_id))];
+      if (clientIds.length > 0) {
+        const skRes = await db.query(
+          `SELECT cs.client_id, s.name FROM client_skills cs JOIN skills s ON cs.skill_id = s.id`
+        );
+        skRes.rows.forEach(r => {
+          if (!clientSkillsMap[r.client_id]) clientSkillsMap[r.client_id] = [];
+          clientSkillsMap[r.client_id].push(r.name);
+        });
+      }
+
+      const sanitizedApplications = applications.rows.map(row => {
+        const candidateSkills = clientSkillsMap[row.client_id] || ['General Assistance'];
+        if (isEmployer) {
+          const names = (row.client_name || '').split(' ');
+          const formattedName = names.length > 1 ? `${names[0]} ${names[1].charAt(0)}.` : names[0];
+          return {
+            id: row.id,
+            job_id: row.job_id,
+            client_id: row.client_id,
+            candidate_name: formattedName,
+            client_name: formattedName,
+            client_location: row.client_location,
+            client_phone: row.status === 'accepted' || row.status === 'completed' ? row.client_phone : 'Protected (Available upon hire)',
+            skills: candidateSkills,
+            availability: 'Full-time / Ready',
+            match_score: row.match_score,
+            status: row.status,
+            applied_at: row.applied_at,
+            accepted_at: row.accepted_at,
+            completed_at: row.completed_at,
+            notes: row.notes
+          };
+        }
+        return {
+          ...row,
+          skills: candidateSkills,
+          candidate_name: row.client_name
+        };
+      });
+
       return res.json({
         success: true,
         data: {
@@ -126,7 +170,7 @@ class JobController {
             ...job,
             skills: skills.rows
           },
-          applications: applications.rows
+          applications: sanitizedApplications
         }
       });
     } catch (err) {

@@ -5,6 +5,8 @@ const { authenticateToken } = require('../middleware/auth');
 
 // Demo SMS simulator exercises real backend pipeline
 router.post('/sms', DemoController.simulateSms);
+router.get('/sms/history/:clientId', DemoController.getSmsHistory);
+router.post('/sms/reset/:clientId', DemoController.resetClientSms);
 router.post('/payment', authenticateToken, DemoController.simulatePayment);
 router.post('/reset', DemoController.resetDemoState);
 

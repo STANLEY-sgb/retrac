@@ -79,9 +79,10 @@ export default function JobDetailPage() {
         notes: `Job completion payout: ${data?.job?.title}`
       });
       if (res.success) {
+        const ref = res.data?.reference || res.data?.transaction_reference || 'RTR-2026-COMPLETED';
         addToast(
           'Payout Dispatched!',
-          `${res.data.transaction_reference} — UGX ${Number(payoutAmount).toLocaleString()} via ${payoutProvider.toUpperCase()}`,
+          `${ref} — UGX ${Number(payoutAmount).toLocaleString()} via ${payoutProvider.toUpperCase()}`,
           'success'
         );
         setPayoutModal(null);

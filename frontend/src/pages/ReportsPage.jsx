@@ -24,7 +24,9 @@ export default function ReportsPage() {
   useEffect(() => { fetchReports(); }, []);
 
   const handleCsvExport = () => {
-    window.open('/api/reports/export-csv', '_blank');
+    const token = localStorage.getItem('retrac_token');
+    const url = `${api.defaults.baseURL}/reports/export-csv${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+    window.open(url, '_blank');
   };
 
   if (loading) return <LoadingSkeleton type="card" count={4} />;

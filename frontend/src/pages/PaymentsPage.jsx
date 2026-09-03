@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard, CheckCircle2, Clock, AlertCircle, RefreshCw, Plus } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { CreditCard, CheckCircle2, Clock, AlertCircle, RefreshCw, Plus, Smartphone } from 'lucide-react';
 import api from '../api/client';
 import StatusBadge from '../components/common/StatusBadge';
 import Modal from '../components/common/Modal';
@@ -71,10 +72,13 @@ export default function PaymentsPage() {
           <p className="text-xs text-slate-500 mt-1">MTN MoMo & Airtel Money reintegration payouts — RTR-2026-XXXXXX references</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={fetchData} className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 shadow-xs">
+          <button onClick={fetchData} className="p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 shadow-xs" title="Refresh ledger">
             <RefreshCw className="w-4 h-4" />
           </button>
-          <button onClick={() => setShowModal(true)} className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5">
+          <Link to="/demo/payment" className="px-3.5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all">
+            <CreditCard className="w-4 h-4" /> MoMo Terminal
+          </Link>
+          <button onClick={() => setShowModal(true)} className="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold shadow-xs flex items-center gap-1.5 transition-all">
             <Plus className="w-4 h-4" /> Trigger Payout
           </button>
         </div>

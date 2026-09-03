@@ -111,7 +111,13 @@ export default function AdminAuditLogsPage() {
                       <tr>
                         <td colSpan={7} className="px-6 pb-4 pt-0 bg-slate-50">
                           <pre className="text-2xs font-mono bg-slate-900 text-emerald-300 p-3 rounded-xl overflow-x-auto border border-slate-800">
-                            {JSON.stringify(typeof log.metadata === 'string' ? JSON.parse(log.metadata) : log.metadata, null, 2)}
+                            {(() => {
+                              try {
+                                return JSON.stringify(typeof log.metadata === 'string' ? JSON.parse(log.metadata) : log.metadata, null, 2);
+                              } catch (e) {
+                                return String(log.metadata);
+                              }
+                            })()}
                           </pre>
                         </td>
                       </tr>

@@ -23,7 +23,18 @@ export default function SettingsPage() {
 
   useEffect(() => {
     api.get('/admin/settings').then(res => {
-      if (res.success && res.data) setSettings(prev => ({ ...prev, ...res.data }));
+      if (res.success && res.data) {
+        const rows = res.data.settings || [];
+        const mapped = {};
+        rows.forEach(r => {
+          // Parse boolean/numbers if needed
+          if (r.value === 'true') mapped[r.key] = true;
+          else if (r.value === 'false') mapped[r.key] = false;
+          else if (!isNaN(Number(r.value)) && r.key.startsWith('risk_weight')) mapped[r.key] = Number(r.value);
+          else mapped[r.key] = r.value;
+        });
+        setSettings(prev => ({ ...prev, ...mapped }));
+      }
     }).catch(console.error).finally(() => setLoading(false));
   }, []);
 

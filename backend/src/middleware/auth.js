@@ -5,8 +5,10 @@ const db = require('../database/db');
 // Verify JWT Token Middleware
 async function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.startsWith('Bearer ') 
+  const token = (authHeader && authHeader.startsWith('Bearer ')) 
     ? authHeader.split(' ')[1] 
+    : (req.query && req.query.token)
+    ? req.query.token
     : null;
 
   if (!token) {

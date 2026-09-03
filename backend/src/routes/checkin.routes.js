@@ -5,6 +5,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { ROLES } = require('../config/constants');
 
 router.use(authenticateToken);
+router.use(requireRole(ROLES.ADMIN, ROLES.CASEWORKER));
 
 router.get('/', CheckinController.getCheckins);
 router.post('/send', requireRole(ROLES.ADMIN, ROLES.CASEWORKER), CheckinController.triggerBatchCheckins);

@@ -1,177 +1,204 @@
-import React, { useState, useEffect } from 'react';
-import { CreditCard, Send, CheckCircle2, Smartphone, Zap } from 'lucide-react';
+﻿import React, { useState, useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { Send, CheckCircle2, RefreshCw, Wallet, Check } from 'lucide-react';
 import api from '../api/client';
+import LoadingSkeleton from '../components/common/LoadingSkeleton';
+import EmptyState from '../components/common/EmptyState';
+import KpiTile from '../components/ui/KpiTile';
+import VisualPipeline from '../components/ui/VisualPipeline';
+import Avatar from '../components/ui/Avatar';
 import { useNotifications } from '../context/NotificationContext';
+import { Shield, Radio, Building2 } from 'lucide-react';
+import { formatUgx } from '../lib/visual';
+
+const PAY_STEPS = [
+  { id: 1, label: 'Authorize', icon: Shield },
+  { id: 2, label: 'Processing', icon: Radio },
+  { id: 3, label: 'Telecom', icon: Building2 },
+  { id: 4, label: 'Success', icon: CheckCircle2 },
+];
 
 export default function DemoPaymentSimulatorPage() {
   const { addToast } = useNotifications();
+  const location = useLocation();
   const [clients, setClients] = useState([]);
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedClient, setSelectedClient] = useState(null);
-  const [provider, setProvider] = useState('demo');
-  const [amount, setAmount] = useState('50000');
-  const [notes, setNotes] = useState('Weekly reintegration stipend');
+  const [network, setNetwork] = useState('mtn_momo');
+  const [amount, setAmount] = useState('20000');
+  const [notes, setNotes] = useState('Reintegration stipend');
+  const [authorizingStep, setAuthorizingStep] = useState(0);
   const [processing, setProcessing] = useState(false);
   const [txResult, setTxResult] = useState(null);
+  const [payments, setPayments] = useState([]);
+  const [stats, setStats] = useState({});
+  const [loadingLedger, setLoadingLedger] = useState(true);
 
-  useEffect(() => {
-    api.get('/clients?limit=100').then(res => {
-      if (res.success) setClients(res.data.clients || []);
-    });
-  }, []);
-
-  const handleClientChange = (clientId) => {
-    setSelectedClientId(clientId);
-    setSelectedClient(clients.find(c => c.id === clientId) || null);
-    setTxResult(null);
-  };
-
-  const handleProcess = async () => {
-    if (!selectedClientId || !amount) return;
-    setProcessing(true);
-    setTxResult(null);
+  const fetchLedger = async () => {
+    setLoadingLedger(true);
     try {
-      const res = await api.post('/payments/disburse', {
-        client_id: selectedClientId,
-        amount: parseFloat(amount),
-        provider,
-        notes
-      });
-      if (res.success) {
-        setTxResult(res.data);
-        addToast(
-          '💸 Payment Dispatched!',
-          `${res.data.transaction_reference} — UGX ${Number(amount).toLocaleString()} to ${selectedClient.full_name}`,
-          'success'
-        );
+      const res = await api.get('/payments?limit=25');
+      if (res.success && res.data) {
+        setPayments(res.data.payments || []);
+        setStats(res.data.statistics || res.data.stats || {});
       }
     } catch (err) {
-      addToast('Error', err.message || 'Payment failed', 'danger');
+      console.warn(err);
     } finally {
-      setProcessing(false);
+      setLoadingLedger(false);
     }
   };
 
-  const providerDetails = {
-    demo: { name: '🧪 Demo Sandbox', desc: 'Instant simulated payment — no real money transferred', color: 'bg-slate-100 text-slate-900 border-slate-300' },
-    mtn_momo: { name: '📱 MTN Mobile Money', desc: 'Uganda MTN MoMo — requires API credentials', color: 'bg-yellow-100 text-yellow-900 border-yellow-300' },
-    airtel_money: { name: '📱 Airtel Money', desc: 'Uganda Airtel Money — requires API credentials', color: 'bg-red-100 text-red-900 border-red-300' }
+  useEffect(() => {
+    api.get('/clients?limit=100').then((res) => {
+      if (res.success && res.data.clients) {
+        const list = res.data.clients;
+        setClients(list);
+        const queryParams = new URLSearchParams(location.search);
+        const preselectedId = location.state?.clientId || queryParams.get('clientId');
+        const match = preselectedId ? list.find((c) => c.id === preselectedId) : list[0];
+        if (match) {
+          setSelectedClientId(match.id);
+          setSelectedClient(match);
+          autoDetectNetwork(match.phone_number);
+        }
+      }
+    });
+    fetchLedger();
+  }, [location]);
+
+  const autoDetectNetwork = (phone = '') => {
+    const clean = phone.replace('+256', '0');
+    setNetwork(clean.startsWith('070') || clean.startsWith('075') ? 'airtel_money' : 'mtn_momo');
   };
 
+  const handleClientChange = (clientId) => {
+    const client = clients.find((c) => c.id === clientId) || null;
+    setSelectedClientId(clientId);
+    setSelectedClient(client);
+    setTxResult(null);
+    setAuthorizingStep(0);
+    if (client) autoDetectNetwork(client.phone_number);
+  };
+
+  const handleProcessPayment = async () => {
+    if (!selectedClientId || !amount || processing) return;
+    setProcessing(true);
+    setTxResult(null);
+    setAuthorizingStep(1);
+    try {
+      setTimeout(() => setAuthorizingStep(2), 500);
+      setTimeout(() => setAuthorizingStep(3), 900);
+      const res = await api.post('/payments/disburse', {
+        clientId: selectedClientId,
+        amount: parseFloat(amount),
+        provider: network,
+        network,
+        notes
+      });
+      if (res.success && res.data) {
+        setTimeout(() => {
+          setAuthorizingStep(4);
+          setTxResult(res.data);
+          setProcessing(false);
+          addToast('Paid', `${res.data.reference} · ${formatUgx(amount)}`, 'success');
+          fetchLedger();
+        }, 1200);
+      } else {
+        throw new Error(res.message || 'Failed');
+      }
+    } catch (err) {
+      setProcessing(false);
+      setAuthorizingStep(0);
+      addToast('Error', err.message || 'Failed', 'danger');
+    }
+  };
+
+  const completed = authorizingStep > 0 ? PAY_STEPS.filter((s) => s.id <= authorizingStep).map((s) => s.id) : [];
+  const okCount = stats.successfulCount || payments.filter((p) => p.status === 'successful' || p.status === 'completed').length || 0;
+
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-          <CreditCard className="w-7 h-7 text-teal-600" />
-          Mobile Money Simulator
-        </h1>
-        <p className="text-xs text-slate-500 mt-1">
-          Simulate MTN MoMo or Airtel Money disbursements with auto-generated RTR-2026-XXXXXX references
-        </p>
+    <div className="space-y-5 animate-fade-in">
+      <h1 className="text-xl font-extrabold">Mobile Money</h1>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <KpiTile icon={Wallet} value={formatUgx(stats.totalAmountPaid || stats.totalDisbursed || 0)} label="Paid" tone="emerald" />
+        <KpiTile icon={CheckCircle2} value={okCount} label="Successful" tone="teal" />
+        <KpiTile icon={RefreshCw} value={stats.pendingCount || stats.pending || 0} label="Pending" tone="amber" />
+        <KpiTile icon={Wallet} value={stats.totalCount || payments.length || 0} label="Txns" tone="navy" />
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-        {/* Step 1: Client */}
-        <div>
-          <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg bg-blue-600 text-white text-xs flex items-center justify-center font-black">1</span>
-            Select Recipient
-          </h3>
-          <select value={selectedClientId} onChange={(e) => handleClientChange(e.target.value)}
-            className="w-full px-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500">
-            <option value="">— Choose client to pay —</option>
-            {clients.map(c => <option key={c.id} value={c.id}>{c.full_name} — {c.phone_number}</option>)}
-          </select>
-        </div>
-
-        {/* Step 2: Payment Details */}
-        <div>
-          <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg bg-teal-600 text-white text-xs flex items-center justify-center font-black">2</span>
-            Payment Details
-          </h3>
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <div>
-              <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">Amount (UGX)</label>
-              <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
-            </div>
-            <div>
-              <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">Payment Reference Notes</label>
-              <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500" />
-            </div>
-          </div>
-        </div>
-
-        {/* Step 3: Provider */}
-        <div>
-          <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-2">
-            <span className="w-6 h-6 rounded-lg bg-emerald-600 text-white text-xs flex items-center justify-center font-black">3</span>
-            Mobile Money Provider
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {Object.entries(providerDetails).map(([key, detail]) => (
-              <label key={key}
-                className={`flex items-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${provider === key ? detail.color + ' shadow-xs' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'}`}>
-                <input type="radio" name="provider" value={key} checked={provider === key} onChange={() => setProvider(key)} className="text-teal-600" />
-                <div>
-                  <p className="text-xs font-bold">{detail.name}</p>
-                  <p className="text-2xs opacity-70">{detail.desc}</p>
-                </div>
-              </label>
-            ))}
-          </div>
-        </div>
-
-        {/* Send Button */}
-        <button
-          onClick={handleProcess}
-          disabled={!selectedClientId || !amount || processing}
-          className="w-full py-4 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-black text-sm shadow-lg shadow-teal-600/20 flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
-        >
-          <Zap className="w-5 h-5" />
-          {processing ? 'Processing Mobile Money Transfer...' : `Send UGX ${Number(amount || 0).toLocaleString()} via ${providerDetails[provider].name}`}
-        </button>
-      </div>
-
-      {/* Transaction Result */}
-      {txResult && (
-        <div className="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-6 text-xs space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-200/80 p-5 space-y-4">
           <div className="flex items-center gap-3">
-            <div className="p-3 bg-emerald-100 rounded-xl">
-              <CheckCircle2 className="w-8 h-8 text-emerald-600" />
-            </div>
-            <div>
-              <p className="text-base font-black text-emerald-900">Payment Dispatched Successfully!</p>
-              <p className="text-emerald-700 font-semibold">Mobile money transfer initiated to {selectedClient?.full_name}</p>
+            <Avatar name={selectedClient?.full_name} />
+            <select value={selectedClientId} onChange={(e) => handleClientChange(e.target.value)} className="flex-1 px-3 py-2 bg-slate-50 border rounded-xl text-sm font-semibold">
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+            </select>
+          </div>
+          <p className="text-xs font-mono text-slate-500">{selectedClient?.phone_number}</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => setNetwork('mtn_momo')} className={`p-3 rounded-xl border text-xs font-bold ${network === 'mtn_momo' ? 'bg-amber-50 border-amber-400' : 'border-slate-200'}`}>MTN</button>
+            <button type="button" onClick={() => setNetwork('airtel_money')} className={`p-3 rounded-xl border text-xs font-bold ${network === 'airtel_money' ? 'bg-rose-50 border-rose-400' : 'border-slate-200'}`}>Airtel</button>
+          </div>
+          <div className="text-center py-4">
+            <p className="text-[11px] font-bold text-slate-400">UGX</p>
+            <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)}
+              className="w-full text-center text-4xl font-extrabold bg-transparent outline-none" />
+            <div className="flex gap-2 mt-3">
+              {['20000', '50000', '65000'].map((p) => (
+                <button key={p} type="button" onClick={() => setAmount(p)} className={`flex-1 py-1 rounded-lg text-[11px] font-bold border ${amount === p ? 'bg-[#082f49] text-white' : 'border-slate-200'}`}>
+                  {Number(p) / 1000}K
+                </button>
+              ))}
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 bg-white rounded-xl border border-emerald-200">
-              <p className="text-2xs text-emerald-600 font-bold uppercase tracking-wider">Transaction Reference</p>
-              <p className="font-mono font-black text-emerald-900 text-lg mt-1">{txResult.transaction_reference}</p>
+          <VisualPipeline stages={PAY_STEPS} completed={completed} />
+          <button type="button" onClick={handleProcessPayment} disabled={!selectedClientId || !amount || processing}
+            className="w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+            <Send className="w-4 h-4" /> {processing ? 'Processing…' : 'Authorize'}
+          </button>
+          {txResult && (
+            <div className="rounded-2xl bg-emerald-50 p-4 text-center animate-scale-up">
+              <p className="text-2xl font-extrabold text-emerald-700">+ {formatUgx(amount)}</p>
+              <p className="text-xs font-mono mt-1">{txResult.reference}</p>
+              <div className="mt-3 mx-auto w-40 rounded-xl bg-[#07170b] text-[#7bf28d] font-mono text-[10px] p-3">
+                <p>💰 Received</p>
+                <p className="font-bold">{formatUgx(amount)}</p>
+                <p>{txResult.reference}</p>
+              </div>
+              <Link to="/demo/sms" className="inline-block mt-3 text-xs font-bold text-teal-800">Open phone</Link>
             </div>
-            <div className="p-3 bg-white rounded-xl border border-emerald-200">
-              <p className="text-2xs text-emerald-600 font-bold uppercase tracking-wider">Amount Disbursed</p>
-              <p className="font-black text-emerald-900 text-lg mt-1">UGX {Number(txResult.amount).toLocaleString()}</p>
-            </div>
-            <div className="p-3 bg-white rounded-xl border border-emerald-200">
-              <p className="text-2xs text-emerald-600 font-bold uppercase tracking-wider">Provider</p>
-              <p className="font-bold text-emerald-900 mt-1">{providerDetails[txResult.provider || provider]?.name}</p>
-            </div>
-            <div className="p-3 bg-white rounded-xl border border-emerald-200">
-              <p className="text-2xs text-emerald-600 font-bold uppercase tracking-wider">Status</p>
-              <p className="font-bold text-emerald-900 mt-1 capitalize">{txResult.status}</p>
-            </div>
-          </div>
-
-          <p className="text-2xs text-emerald-600 text-center font-semibold">
-            This transaction is immutably recorded in the ReTrac audit log for financial compliance.
-          </p>
+          )}
         </div>
-      )}
+
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 p-5">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[11px] font-bold uppercase text-slate-400">Ledger</p>
+            <button onClick={fetchLedger} className="p-2 rounded-lg hover:bg-slate-50"><RefreshCw className="w-4 h-4" /></button>
+          </div>
+          {loadingLedger ? <LoadingSkeleton type="card" count={4} /> : payments.length === 0 ? (
+            <EmptyState icon={Wallet} title="No transactions" />
+          ) : (
+            <div className="space-y-2 max-h-[520px] overflow-y-auto custom-scrollbar">
+              {payments.map((p) => (
+                <div key={p.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Avatar name={p.client_name} size="sm" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold truncate">{p.client_name}</p>
+                      <p className="text-[10px] font-mono text-slate-400">{p.transaction_reference}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-extrabold text-emerald-600">+ {formatUgx(p.amount)}</p>
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700"><Check className="w-3 h-3" /> Done</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ const { ROLES } = require('../config/constants');
 
 router.use(authenticateToken);
 
+router.get('/', ApplicationController.getApplications);
 router.put('/:id/status', requireRole(ROLES.ADMIN, ROLES.CASEWORKER, ROLES.EMPLOYER), ApplicationController.updateStatus);
 router.patch('/:id/status', requireRole(ROLES.ADMIN, ROLES.CASEWORKER, ROLES.EMPLOYER), ApplicationController.updateStatus);
 router.put('/:id', requireRole(ROLES.ADMIN, ROLES.CASEWORKER, ROLES.EMPLOYER), ApplicationController.updateStatus);

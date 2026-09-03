@@ -51,16 +51,77 @@ class DemoController {
   }
 
   /**
+   * Get SMS History for a client
+   */
+  static async getSmsHistory(req, res, next) {
+    try {
+      const { clientId } = req.params;
+      const client = await db.getOne('SELECT id, full_name, phone_number, current_risk_level, current_risk_score FROM clients WHERE id = $1', [clientId]);
+      if (!client) {
+        return res.status(404).json({ success: false, message: 'Client not found.' });
+      }
+
+      const messages = await db.query(
+        'SELECT * FROM sms_messages WHERE client_id = $1 OR phone_number = $2 ORDER BY created_at ASC',
+        [client.id, client.phone_number]
+      );
+
+      const checkins = await db.query(
+        'SELECT * FROM check_ins WHERE client_id = $1 ORDER BY created_at DESC LIMIT 5',
+        [client.id]
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          client,
+          messages: messages.rows,
+          checkins: checkins.rows
+        }
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Reset SMS messages for a client
+   */
+  static async resetClientSms(req, res, next) {
+    try {
+      const { clientId } = req.params;
+      const client = await db.getOne('SELECT id, phone_number FROM clients WHERE id = $1', [clientId]);
+      if (!client) {
+        return res.status(404).json({ success: false, message: 'Client not found.' });
+      }
+
+      await db.run(
+        'DELETE FROM sms_messages WHERE client_id = $1 OR phone_number = $2',
+        [client.id, client.phone_number]
+      );
+
+      return res.json({
+        success: true,
+        message: 'Client SMS conversation reset successfully.'
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
    * Simulate Mobile Money Payment
    */
   static async simulatePayment(req, res, next) {
     try {
-      const { clientId, amount = 20000, notes = 'Simulated demo work completion stipend' } = req.body;
+      const { clientId, amount = 20000, notes = 'Simulated demo work completion stipend', provider = 'demo', applicationId = null } = req.body;
 
       const result = await PaymentService.triggerPayment({
         clientId,
+        applicationId,
         amount,
         notes,
+        provider,
         user: req.user
       });
 

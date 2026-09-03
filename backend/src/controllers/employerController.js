@@ -42,6 +42,32 @@ class EmployerController {
         [id]
       );
 
+      // Skills mapping
+      const clientSkillsMap = {};
+      const clientIds = [...new Set(applications.rows.map(r => r.client_id))];
+      if (clientIds.length > 0) {
+        const skRes = await db.query(
+          `SELECT cs.client_id, s.name FROM client_skills cs JOIN skills s ON cs.skill_id = s.id`
+        );
+        skRes.rows.forEach(r => {
+          if (!clientSkillsMap[r.client_id]) clientSkillsMap[r.client_id] = [];
+          clientSkillsMap[r.client_id].push(r.name);
+        });
+      }
+
+      const sanitizedApplications = applications.rows.map(row => {
+        const names = (row.client_name || '').split(' ');
+        const formattedName = names.length > 1 ? `${names[0]} ${names[1].charAt(0)}.` : names[0];
+        return {
+          ...row,
+          candidate_name: formattedName,
+          client_name: formattedName,
+          client_phone: row.status === 'accepted' || row.status === 'completed' ? row.client_phone : 'Protected (Available upon hire)',
+          skills: clientSkillsMap[row.client_id] || ['General Assistance'],
+          availability: 'Full-time / Ready'
+        };
+      });
+
       // Payments made
       const payments = await db.query(
         `SELECT p.*, c.full_name as client_name, j.title as job_title
@@ -60,13 +86,13 @@ class EmployerController {
           employer,
           stats: {
             openJobsCount: jobs.rows.filter(j => j.status === 'open').length,
-            totalApplicationsCount: applications.rows.length,
-            hiredCount: applications.rows.filter(a => a.status === 'accepted' || a.status === 'completed').length,
-            completedCount: applications.rows.filter(a => a.status === 'completed').length,
+            totalApplicationsCount: sanitizedApplications.length,
+            hiredCount: sanitizedApplications.filter(a => a.status === 'accepted' || a.status === 'completed').length,
+            completedCount: sanitizedApplications.filter(a => a.status === 'completed').length,
             totalDisbursed: payments.rows.filter(p => p.status === 'successful').reduce((sum, p) => sum + parseFloat(p.amount), 0)
           },
           jobs: jobs.rows,
-          applications: applications.rows,
+          applications: sanitizedApplications,
           payments: payments.rows
         }
       });

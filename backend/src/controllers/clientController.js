@@ -10,6 +10,15 @@ class ClientController {
    */
   static async getClients(req, res, next) {
     try {
+      // Employer Denied access to client recovery records
+      if (req.user && req.user.role === 'employer') {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. Employers cannot access the client recovery registry.',
+          code: 'FORBIDDEN_ROLE'
+        });
+      }
+
       const { search, status, riskLevel, caseworkerId, skillId, sort = 'highest_risk', limit = 50, offset = 0 } = req.query;
 
       let sql = `
@@ -20,6 +29,20 @@ class ClientController {
       `;
       const params = [];
       let pIndex = 1;
+
+      // Caseworker filter to "My Clients" when scope=mine or my_clients=true or caseworkerId
+      let effectiveCaseworkerId = caseworkerId;
+      if (!effectiveCaseworkerId && req.user && req.user.role === 'caseworker' && (req.query.scope === 'mine' || req.query.my_clients === 'true' || req.query.myClients === 'true')) {
+        const cw = await db.getOne('SELECT id FROM caseworkers WHERE user_id = $1', [req.user.id]);
+        if (cw) {
+          effectiveCaseworkerId = cw.id;
+        }
+      }
+
+      if (effectiveCaseworkerId) {
+        sql += ` AND c.assigned_caseworker_id = $${pIndex++}`;
+        params.push(effectiveCaseworkerId);
+      }
 
       if (search) {
         sql += ` AND (c.full_name LIKE $${pIndex} OR c.phone_number LIKE $${pIndex} OR c.treatment_centre LIKE $${pIndex} OR c.location LIKE $${pIndex})`;
@@ -35,11 +58,6 @@ class ClientController {
       if (riskLevel) {
         sql += ` AND c.current_risk_level = $${pIndex++}`;
         params.push(riskLevel);
-      }
-
-      if (caseworkerId) {
-        sql += ` AND c.assigned_caseworker_id = $${pIndex++}`;
-        params.push(caseworkerId);
       }
 
       // Sorting
@@ -101,6 +119,14 @@ class ClientController {
    */
   static async getClientById(req, res, next) {
     try {
+      if (req.user && req.user.role === 'employer') {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied. Employers cannot access client medical/rehabilitation records.',
+          code: 'FORBIDDEN_ROLE'
+        });
+      }
+
       const { id } = req.params;
 
       const client = await db.getOne(
@@ -398,6 +424,30 @@ class ClientController {
     } catch (err) {
       next(err);
     }
+  }
+
+  /**
+   * Get Active Caseworkers list for assignment dropdowns
+   */
+  static async getCaseworkersList(req, res, next) {
+    try {
+      const result = await db.query(
+        `SELECT cw.id, cw.full_name, cw.phone, cw.email, cw.organization, cw.title, cw.active_client_count
+         FROM caseworkers cw
+         ORDER BY cw.full_name ASC`
+      );
+      return res.json({ success: true, data: { caseworkers: result.rows } });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  /**
+   * Assign/Reassign Client to Caseworker
+   */
+  static async assignClient(req, res, next) {
+    const AdminController = require('./adminController');
+    return AdminController.assignClient(req, res, next);
   }
 }
 

@@ -41,6 +41,7 @@ class PaymentService {
     amount,
     currency = 'UGX',
     notes = 'Reintegration work completion stipend',
+    provider: requestedProvider = 'demo',
     user = null
   }) {
     // 1. Fetch Client
@@ -64,6 +65,13 @@ class PaymentService {
 
     const isSuccess = result.status === 'successful';
     const status = isSuccess ? 'successful' : 'failed';
+    const providerName = requestedProvider || provider.name;
+
+    // Normalize to database CHECK constraint ('demo', 'mtn', 'airtel')
+    let dbProvider = 'demo';
+    const lowerProv = String(providerName).toLowerCase();
+    if (lowerProv.includes('mtn')) dbProvider = 'mtn';
+    else if (lowerProv.includes('airtel')) dbProvider = 'airtel';
 
     // 4. Save to payments table
     await db.run(
@@ -79,7 +87,7 @@ class PaymentService {
         employerId,
         amount,
         currency,
-        provider.name,
+        dbProvider,
         reference,
         status,
         JSON.stringify(result.rawResponse || {}),
@@ -97,6 +105,22 @@ class PaymentService {
       );
     }
 
+    // 5b. Automatically dispatch Mobile Money Receipt SMS to client's phone
+    if (isSuccess && client.phone_number) {
+      const receiptSms = `ReTrac MoMo: ${currency} ${Number(amount).toLocaleString()} has been credited for completed work. Ref: ${reference}. This is a simulated demo transaction.`;
+      
+      try {
+        const SmsService = require('../sms/smsService');
+        await SmsService.sendSms({
+          clientId: client.id,
+          to: client.phone_number,
+          message: receiptSms
+        });
+      } catch (smsErr) {
+        console.warn('⚠️ Could not dispatch payment receipt SMS to client:', smsErr.message);
+      }
+    }
+
     // 6. Broadcast notification
     const formattedAmount = `${currency} ${Number(amount).toLocaleString()}`;
     await NotificationService.broadcastToStaff({
@@ -104,7 +128,7 @@ class PaymentService {
       type: 'payment_update',
       title: `💰 Payment Disbursed: ${formattedAmount}`,
       message: `Mobile money payout ${reference} of ${formattedAmount} successfully transferred to ${client.full_name} (${client.phone_number}).`,
-      metadata: { paymentId, reference, amount, recipient: client.full_name }
+      metadata: { paymentId, reference, amount, recipient: client.full_name, provider: providerName }
     });
 
     // 7. Audit log
@@ -119,7 +143,7 @@ class PaymentService {
         amount,
         currency,
         client: client.full_name,
-        provider: provider.name,
+        provider: providerName,
         status
       }
     });
@@ -136,7 +160,7 @@ class PaymentService {
         name: client.full_name,
         phone: client.phone_number
       },
-      provider: provider.name,
+      provider: providerName,
       notes,
       message: result.message || 'Payment processed successfully.'
     };
@@ -178,7 +202,7 @@ class PaymentService {
     const result = await db.query(sql, params);
 
     // Summary statistics
-    const stats = await db.getOne(`
+    let statsSql = `
       SELECT 
         COUNT(*) as total_count,
         SUM(CASE WHEN status = 'successful' THEN amount ELSE 0 END) as total_amount_paid,
@@ -186,7 +210,14 @@ class PaymentService {
         SUM(CASE WHEN status = 'successful' THEN 1 ELSE 0 END) as successful_count,
         SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_count
       FROM payments
-    `);
+      WHERE 1=1
+    `;
+    const statsParams = [];
+    if (employerId) {
+      statsSql += ' AND employer_id = $1';
+      statsParams.push(employerId);
+    }
+    const stats = await db.getOne(statsSql, statsParams);
 
     return {
       payments: result.rows,

@@ -5,6 +5,7 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 const { ROLES } = require('../config/constants');
 
 router.use(authenticateToken);
+router.use(requireRole(ROLES.ADMIN, ROLES.CASEWORKER));
 
 router.get('/', InterventionController.getInterventions);
 router.post('/', requireRole(ROLES.ADMIN, ROLES.CASEWORKER), InterventionController.recordIntervention);
