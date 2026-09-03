@@ -1,63 +1,50 @@
-import React from 'react';
-import { ShieldCheck, AlertTriangle, AlertOctagon, Activity, CheckCircle, Clock, XCircle } from 'lucide-react';
+﻿import React from "react";
 
-export default function StatusBadge({ status, size = 'md' }) {
-  if (!status) return null;
-  const clean = String(status).toUpperCase();
-  const sizeClasses = {
-    sm: 'text-[10px] px-2 py-0.5',
-    md: 'text-[11px] px-2.5 py-1',
-    lg: 'text-xs px-3 py-1.5'
-  }[size] || 'text-[11px] px-2.5 py-1';
+const BADGE_MAP = {
+  // Risk levels
+  CRITICAL:  { label: "Critical",  cls: "bg-rose-100 text-rose-700 border-rose-200" },
+  AT_RISK:   { label: "At Risk",   cls: "bg-orange-100 text-orange-700 border-orange-200" },
+  MONITOR:   { label: "Monitor",   cls: "bg-amber-100 text-amber-700 border-amber-200" },
+  STABLE:    { label: "Stable",    cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  // Client statuses
+  active:          { label: "Active",        cls: "bg-teal-100 text-teal-700 border-teal-200" },
+  completed:       { label: "Graduated",     cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  lost_contact:    { label: "Lost Contact",  cls: "bg-slate-100 text-slate-600 border-slate-200" },
+  // Job statuses
+  open:            { label: "Open",          cls: "bg-sky-100 text-sky-700 border-sky-200" },
+  filled:          { label: "Filled",        cls: "bg-teal-100 text-teal-700 border-teal-200" },
+  closed:          { label: "Closed",        cls: "bg-slate-100 text-slate-600 border-slate-200" },
+  // Application statuses
+  pending:         { label: "Pending",       cls: "bg-amber-100 text-amber-700 border-amber-200" },
+  accepted:        { label: "Accepted",      cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  rejected:        { label: "Rejected",      cls: "bg-rose-100 text-rose-700 border-rose-200" },
+  interviewed:     { label: "Interviewed",   cls: "bg-purple-100 text-purple-700 border-purple-200" },
+  // Payment statuses
+  successful:      { label: "Paid",          cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  failed:          { label: "Failed",        cls: "bg-rose-100 text-rose-700 border-rose-200" },
+  processing:      { label: "Processing",    cls: "bg-amber-100 text-amber-700 border-amber-200" },
+  // Intervention
+  in_progress:     { label: "In Progress",   cls: "bg-sky-100 text-sky-700 border-sky-200" },
+  successful_intv: { label: "Resolved",      cls: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  unsuccessful:    { label: "Unsuccessful",  cls: "bg-rose-100 text-rose-700 border-rose-200" },
+};
 
-  let config = { bg: 'bg-slate-100 text-slate-700', icon: Activity, label: String(status) };
+export default function StatusBadge({ status, size = "md" }) {
+  const key = String(status || "").toUpperCase() in BADGE_MAP
+    ? String(status).toUpperCase()
+    : String(status || "").toLowerCase() in BADGE_MAP
+    ? String(status).toLowerCase()
+    : null;
 
-  switch (clean) {
-    case 'STABLE':
-      config = { bg: 'bg-emerald-50 text-emerald-700', icon: ShieldCheck, label: 'Stable' };
-      break;
-    case 'MONITOR':
-      config = { bg: 'bg-amber-50 text-amber-700', icon: AlertTriangle, label: 'Monitor' };
-      break;
-    case 'AT_RISK':
-    case 'AT RISK':
-      config = { bg: 'bg-orange-50 text-orange-700', icon: AlertTriangle, label: 'At Risk' };
-      break;
-    case 'CRITICAL':
-      config = { bg: 'bg-rose-50 text-rose-700', icon: AlertOctagon, label: 'Critical' };
-      break;
-    case 'ACTIVE':
-    case 'OPEN':
-      config = { bg: 'bg-sky-50 text-sky-700', icon: Activity, label: clean === 'ACTIVE' ? 'Active' : 'Open' };
-      break;
-    case 'COMPLETED':
-    case 'SUCCESSFUL':
-    case 'RESOLVED':
-    case 'ACCEPTED':
-      config = { bg: 'bg-teal-50 text-teal-700', icon: CheckCircle, label: clean.charAt(0) + clean.slice(1).toLowerCase() };
-      break;
-    case 'PENDING':
-    case 'SENT':
-    case 'MATCHED':
-    case 'APPLIED':
-    case 'RECEIVED':
-      config = { bg: 'bg-amber-50 text-amber-800', icon: Clock, label: clean.charAt(0) + clean.slice(1).toLowerCase() };
-      break;
-    case 'MISSED':
-    case 'FAILED':
-    case 'REJECTED':
-    case 'LOST_CONTACT':
-      config = { bg: 'bg-rose-50 text-rose-700', icon: XCircle, label: clean.replace('_', ' ') };
-      break;
-    default:
-      break;
-  }
+  const config = key ? BADGE_MAP[key] : { label: status || "Unknown", cls: "bg-slate-100 text-slate-500 border-slate-200" };
 
-  const IconComponent = config.icon;
+  const sizeClass = size === "sm"
+    ? "px-1.5 py-0.5 text-[10px] rounded-md"
+    : "px-2 py-0.5 text-[11px] rounded-lg";
+
   return (
-    <span className={`inline-flex items-center gap-1 font-semibold rounded-full ${config.bg} ${sizeClasses}`}>
-      <IconComponent className="w-3 h-3 flex-shrink-0" />
-      <span>{config.label}</span>
+    <span className={`inline-flex items-center font-bold border ${config.cls} ${sizeClass} whitespace-nowrap`}>
+      {config.label}
     </span>
   );
 }

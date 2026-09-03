@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Bell, CheckCheck, AlertOctagon, AlertTriangle, MessageSquare, Briefcase, CreditCard, Info, RefreshCw } from 'lucide-react';
 import api from '../api/client';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
@@ -30,7 +30,7 @@ export default function NotificationsPage() {
 
   const markAllRead = async () => {
     try {
-      await api.patch('/notifications/read-all');
+      await api.put('/notifications/read-all');
       fetchNotifications();
     } catch (err) {
       console.error(err);
@@ -148,3 +148,4 @@ export default function NotificationsPage() {
     </div>
   );
 }
+

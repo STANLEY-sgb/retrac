@@ -142,7 +142,7 @@ export default function DemoSmsSimulatorPage() {
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-extrabold">SMS</h1>
+        <h1 className="text-xl font-extrabold text-slate-900">2G SMS Check-in Simulator</h1>
         <div className="flex gap-2">
           <button onClick={() => loadClientHistory(selectedClientId)} className="p-2.5 rounded-xl bg-white border border-slate-200"><RefreshCw className="w-4 h-4" /></button>
           <button onClick={handleSendCheckinPrompt} disabled={dispatchingPrompt} className="px-3 py-2.5 rounded-xl bg-[#082f49] text-white text-xs font-bold disabled:opacity-50">
@@ -222,3 +222,4 @@ export default function DemoSmsSimulatorPage() {
     </div>
   );
 }
+

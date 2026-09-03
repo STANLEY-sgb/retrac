@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import {
-  Users, ShieldCheck, AlertTriangle, AlertOctagon, Smartphone, Plus,
+  Users, ShieldCheck, AlertTriangle, AlertOctagon, Smartphone, Plus, UserCheck,
   RefreshCw, Briefcase, Wallet, MessageSquare, Building2, CheckCircle2,
   ArrowUpRight, Clock, ShieldAlert, HeartHandshake, ChevronRight, Check, DollarSign
 } from 'lucide-react';
@@ -72,7 +72,7 @@ export default function DashboardPage() {
         {/* Header */}
         <PageHeader
           title={`${greet}, ${employerInfo.contact_person ? employerInfo.contact_person.split(' ')[0] : firstName}`}
-          subtitle={`${employerInfo.company_name || 'Partner Employer'} • Inclusive Reintegration Partner`}
+          subtitle={`${employerInfo.company_name || 'Partner Employer'} â€¢ Inclusive Reintegration Partner`}
           actions={
             <>
               <button
@@ -174,7 +174,7 @@ export default function DashboardPage() {
                           <StatusBadge status={app.status} />
                         </div>
                         <p className="text-xs text-slate-600 mt-1">
-                          Applied for: <span className="font-semibold text-slate-800">{app.job_title}</span> • {app.candidate_location || 'Kampala Area'}
+                          Applied for: <span className="font-semibold text-slate-800">{app.job_title}</span> â€¢ {app.candidate_location || 'Kampala Area'}
                         </p>
                         <div className="flex flex-wrap gap-1.5 mt-2">
                           {(app.skills || ['General Assistance']).map((s, idx) => (
@@ -230,7 +230,7 @@ export default function DashboardPage() {
                       <div className="mt-2 flex items-center justify-between text-2xs text-slate-500">
                         <span>{job.applicant_count || 0} applicant{job.applicant_count === 1 ? '' : 's'}</span>
                         <Link to={`/jobs/${job.id}`} className="text-teal-700 font-semibold hover:underline">
-                          View details →
+                          View details â†’
                         </Link>
                       </div>
                     </div>
@@ -284,7 +284,7 @@ export default function DashboardPage() {
     <div className="space-y-6 animate-fade-in">
       <PageHeader
         title={`${greet}, ${firstName}`}
-        subtitle="Post-Rehab Aftercare & Clinical Reintegration Command Center"
+        subtitle="Recovery oversight, risk monitoring & employment reintegration"
         actions={
           <>
             <button
@@ -345,7 +345,7 @@ export default function DashboardPage() {
               </p>
             </div>
             <Link to="/admin/users" className="text-xs font-bold text-blue-600 hover:text-blue-700">
-              Manage Staff Users →
+              Manage Staff Users â†’
             </Link>
           </div>
           <div className="overflow-x-auto">
@@ -404,3 +404,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertOctagon, AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-react';
 import api from '../api/client';
@@ -65,7 +65,7 @@ export default function RiskAlertsPage() {
 
   const Board = ({ title, items, tone }) => (
     <div className="bg-white rounded-2xl border border-slate-200/80 p-3 min-h-[200px]">
-      <p className={`text-[11px] font-extrabold uppercase tracking-wider mb-3 ${tone}`}>{title} · {items.length}</p>
+      <p className={`text-[11px] font-extrabold uppercase tracking-wider mb-3 ${tone}`}>{title} Â· {items.length}</p>
       <div className="space-y-2">
         {items.map((alert) => {
           const score = alert.risk_score ?? alert.score ?? 0;
@@ -93,7 +93,7 @@ export default function RiskAlertsPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <PageHeader title="Risk" actions={<button onClick={fetchAlerts} className="p-2.5 rounded-xl bg-white border border-slate-200"><RefreshCw className="w-4 h-4" /></button>} />
+      <PageHeader title="Risk Alerts" subtitle="Active relapse risk flags requiring caseworker intervention" actions={<button onClick={fetchAlerts} className="p-2.5 rounded-xl bg-white border border-slate-200"><RefreshCw className="w-4 h-4" /></button>} />
       {loading ? <LoadingSkeleton type="card" count={3} /> : alerts.length === 0 ? (
         <EmptyState icon={CheckCircle2} title="All clear" />
       ) : (
@@ -107,9 +107,10 @@ export default function RiskAlertsPage() {
         <form onSubmit={handleResolve} className="space-y-3">
           <input value={resolveDescription} onChange={(e) => setResolveDescription(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm" />
           <textarea rows={2} value={resolveAction} onChange={(e) => setResolveAction(e.target.value)} className="w-full px-3 py-2 bg-slate-50 border rounded-xl text-sm" />
-          <button type="submit" disabled={resolving} className="w-full py-2.5 rounded-xl bg-teal-600 text-white font-bold">{resolving ? 'Saving…' : 'Resolve'}</button>
+          <button type="submit" disabled={resolving} className="w-full py-2.5 rounded-xl bg-teal-600 text-white font-bold">{resolving ? 'Savingâ€¦' : 'Resolve'}</button>
         </form>
       </Modal>
     </div>
   );
 }
+

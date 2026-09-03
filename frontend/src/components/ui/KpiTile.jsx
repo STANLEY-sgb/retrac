@@ -1,38 +1,38 @@
-import React from 'react';
+﻿import React from "react";
 
-export default function KpiTile({ icon: Icon, value, label, tone = 'slate', onClick }) {
-  const tones = {
-    slate: 'text-slate-900',
-    teal: 'text-teal-700',
-    emerald: 'text-emerald-700',
-    amber: 'text-amber-700',
-    orange: 'text-orange-700',
-    rose: 'text-rose-700',
-    navy: 'text-[#082f49]'
-  };
-  const iconWrap = {
-    slate: 'bg-slate-100 text-slate-600',
-    teal: 'bg-teal-50 text-teal-700',
-    emerald: 'bg-emerald-50 text-emerald-700',
-    amber: 'bg-amber-50 text-amber-700',
-    orange: 'bg-orange-50 text-orange-700',
-    rose: 'bg-rose-50 text-rose-700',
-    navy: 'bg-[#082f49] text-teal-300'
-  };
+const TONES = {
+  navy:    { bg: "bg-[#082f49]",     text: "text-white",         icon: "text-sky-300",     hover: "hover:bg-[#0c4a6e]" },
+  teal:    { bg: "bg-teal-600",      text: "text-white",         icon: "text-teal-200",    hover: "hover:bg-teal-700" },
+  emerald: { bg: "bg-emerald-600",   text: "text-white",         icon: "text-emerald-200", hover: "hover:bg-emerald-700" },
+  amber:   { bg: "bg-amber-500",     text: "text-white",         icon: "text-amber-100",   hover: "hover:bg-amber-600" },
+  orange:  { bg: "bg-orange-500",    text: "text-white",         icon: "text-orange-100",  hover: "hover:bg-orange-600" },
+  rose:    { bg: "bg-rose-500",      text: "text-white",         icon: "text-rose-100",    hover: "hover:bg-rose-600" },
+  slate:   { bg: "bg-slate-700",     text: "text-white",         icon: "text-slate-300",   hover: "hover:bg-slate-800" },
+  white:   { bg: "bg-white",         text: "text-slate-900",     icon: "text-slate-400",   hover: "hover:bg-slate-50" },
+};
+
+export default function KpiTile({ icon: Icon, value, label, tone = "white", onClick, pulse = false }) {
+  const t = TONES[tone] || TONES.white;
+  const Tag = onClick ? "button" : "div";
 
   return (
-    <button
-      type="button"
+    <Tag
       onClick={onClick}
-      className={`text-left bg-white rounded-2xl border border-slate-200/80 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:shadow-md hover:border-slate-300 transition-all ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
+      className={`
+        relative overflow-hidden rounded-2xl p-4 flex flex-col gap-2 shadow-[0_1px_2px_rgba(15,23,42,0.06)]
+        ${t.bg} ${t.text} ${onClick ? `${t.hover} cursor-pointer active:scale-[0.98] transition-all duration-150 hover:shadow-[0_4px_12px_-2px_rgba(15,23,42,0.16)]` : ""}
+        ${pulse ? "animate-soft-pulse" : ""}
+      `}
+      aria-label={label}
     >
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${iconWrap[tone] || iconWrap.slate}`}>
-        {Icon ? <Icon className="w-4.5 h-4.5 w-5 h-5" /> : null}
+      {/* Subtle background glow ring */}
+      <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-white/10" />
+
+      <Icon className={`w-5 h-5 ${t.icon} relative z-10`} aria-hidden="true" />
+      <div className="relative z-10">
+        <p className="text-xl sm:text-2xl font-extrabold leading-none tracking-tight">{value ?? "—"}</p>
+        <p className={`text-[11px] font-semibold mt-1 ${tone === "white" ? "text-slate-500" : "opacity-80"}`}>{label}</p>
       </div>
-      <p className={`text-2xl sm:text-3xl font-extrabold tracking-tight leading-none ${tones[tone] || tones.slate}`}>
-        {value}
-      </p>
-      <p className="text-[11px] font-semibold text-slate-500 mt-1.5 uppercase tracking-wide">{label}</p>
-    </button>
+    </Tag>
   );
 }

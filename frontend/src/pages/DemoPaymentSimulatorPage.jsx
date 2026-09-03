@@ -119,7 +119,7 @@ export default function DemoPaymentSimulatorPage() {
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <h1 className="text-xl font-extrabold">Mobile Money</h1>
+      <div class="mb-1"><h1 className="text-xl font-extrabold text-slate-900">Mobile Money Disbursement</h1><p className="text-xs text-slate-500 mt-0.5">MTN MoMo & Airtel Money · Simulated wage payments to recovering clients</p></div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <KpiTile icon={Wallet} value={formatUgx(stats.totalAmountPaid || stats.totalDisbursed || 0)} label="Paid" tone="emerald" />
         <KpiTile icon={CheckCircle2} value={okCount} label="Successful" tone="teal" />
@@ -202,3 +202,4 @@ export default function DemoPaymentSimulatorPage() {
     </div>
   );
 }
+
